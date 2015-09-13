@@ -30,12 +30,6 @@
 
 typedef enum {false, true} bool;
 
-// Particle information
-typedef struct particles{
-    double x, y, z;
-    double vx, vy, vz, t;
-} particles;
-
 /* Domain information for grids */
 typedef struct grids{
     int nx, ny, nz, nt;

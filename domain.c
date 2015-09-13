@@ -24,19 +24,20 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name);
  * Output:
  *  simul_domain: the domain information.
  ******************************************************************************/
-int read_domain(int mpi_rank, char *config_file_name, domain *simul_domain)
+int read_domain(int mpi_rank, char *config_file_name, domain *simul_domain,
+        int *system_type, int *tracking_method)
 {
     FILE *fp;
-    int system_type, err, tracking_method;
+    int err;
     double tott;
     fp = fopen(config_file_name, "r");
     get_spatial_domain(mpi_rank, fp, simul_domain);
-    system_type = get_system_type(mpi_rank, fp);
-    if (system_type < 0) {
+    *system_type = get_system_type(mpi_rank, fp);
+    if (*system_type < 0) {
         fclose(fp);
         return -1;
     }
-    err = get_tracking_time_method(mpi_rank, fp, &tott, &tracking_method);
+    err = get_tracking_time_method(mpi_rank, fp, &tott, tracking_method);
     if (err < 0) {
         fclose(fp);
         return -1;
@@ -46,7 +47,7 @@ int read_domain(int mpi_rank, char *config_file_name, domain *simul_domain)
 
     fclose(fp);
 
-    err = get_system_info(mpi_rank, system_type, config_file_name);
+    err = get_system_info(mpi_rank, *system_type, config_file_name);
     if (err < 0) {
         return -1;
     }
@@ -115,7 +116,6 @@ void get_spatial_domain(int mpi_rank, FILE *fp, domain *simul_domain)
 
     free(buff);
 }
-
 
 /******************************************************************************
  * Read from init.dat to get the total particle tracking time and the tracking

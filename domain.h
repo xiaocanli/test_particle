@@ -11,4 +11,5 @@ typedef struct domain{
 
 #endif
 
-int read_domain(int mpi_rank, char *config_file_name, domain *simul_domain);
+int read_domain(int mpi_rank, char *config_file_name, domain *simul_domain,
+        int *system_type, int *tracking_method);

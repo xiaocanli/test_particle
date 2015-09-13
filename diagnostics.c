@@ -396,82 +396,6 @@ void save_particles_fields(int nptl, struct particles *ptl,
 }
 
 /******************************************************************************
- * Read all particles information from hdf5 file.
- *
- * Input:
- *  nptl: number of particle in one MPI process.
- * Output:
- *  ptl: particle structure array.
- ******************************************************************************/
-void read_particles(int nptl, struct particles *ptl, char *fname)
-{
-    int rank = 1;
-//    char fname[] = "particles_fields.h5";
-    char gname[] = "/particles_fields";
-    hid_t file_id, group_id;
-    hid_t dset_ptl;
-    hid_t filespace, memspace;
-    hid_t plist_id;
-    //herr_t status;
-    hsize_t count[rank], offset[rank];
-    hid_t memtype_ptl, filetype_ptl;
-
-    MPI_Comm comm = MPI_COMM_WORLD;
-    MPI_Info info = MPI_INFO_NULL;
-    MPI_Info_create(&info);
-    /* Disable ROMIO's data-sieving */
-    MPI_Info_set(info, "romio_ds_read", "disable");
-    MPI_Info_set(info, "romio_ds_write", "disable");
-    /* Enable ROMIO's collective buffering */
-    MPI_Info_set(info, "romio_cb_read", "enable");
-    MPI_Info_set(info, "romio_cb_write", "enable");
-
-    /* Setup file access property list with parallel I/O access. */
-    plist_id = H5Pcreate(H5P_FILE_ACCESS);
-    H5Pset_fapl_mpio(plist_id, comm, info);
-    MPI_Info_free(&info);
-
-    /* Create a new file collectively and release property list identifier. */
-    file_id = H5Fopen(fname, H5F_ACC_RDWR, plist_id);
-    H5Pclose(plist_id);
-    /* Create a new group */
-    group_id = H5Gopen1(file_id, gname);
-
-    /* Create compound datatype */
-    create_particles_ctype(&memtype_ptl, &filetype_ptl);
-
-    /* Open a dataset and get its dataspace. */
-    dset_ptl = H5Dopen(group_id, "particles", H5P_DEFAULT);
-    filespace = H5Dget_space(dset_ptl);
-
-    plist_id = H5Pcreate(H5P_DATASET_XFER);
-    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-
-    /* Count and offset in the memory. */
-    count[0] = nptl;
-    if (mpi_rank == 0) {
-        offset[0] = 0;
-    } else {
-        offset[0] = nptl_accumulate[mpi_rank-1];
-    }
-
-    memspace = H5Screate_simple(rank, count, NULL);
-    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, 
-            NULL, count, NULL);
-    H5Dread(dset_ptl, memtype_ptl, memspace, filespace, 
-            plist_id, ptl);
-    H5Sclose(filespace);
-
-    H5Sclose(memspace);
-    H5Pclose(plist_id);
-    H5Dclose(dset_ptl);
-    H5Tclose(memtype_ptl);
-    H5Tclose(filetype_ptl);
-    H5Gclose(group_id);
-    H5Fclose(file_id);
-}
-
-/******************************************************************************
  * Create a compound data type containing the fields information for HDF5.
  *
  * Output:
@@ -508,73 +432,6 @@ void create_fields_ctype(hid_t *memtype, hid_t *filetype)
     H5Tinsert (*filetype, "Ex", 8*3, H5T_IEEE_F64BE);
     H5Tinsert (*filetype, "Ey", 8*4, H5T_IEEE_F64BE);
     H5Tinsert (*filetype, "Ez", 8*5, H5T_IEEE_F64BE);
-}
-
-/******************************************************************************
- * Create a compound data type containing the particle information for HDF5.
- *
- * Output:
- *  memtype: compound datatype for memory.
- *  filetype: compound datatype for the file.
- ******************************************************************************/
-void create_particles_ctype(hid_t *memtype, hid_t *filetype)
-{
-    //herr_t status;
-    /* Create the compound datatype in memory */
-    *memtype = H5Tcreate(H5T_COMPOUND, sizeof(particles));
-    H5Tinsert(*memtype, "x", 
-            HOFFSET(particles, x), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "y", 
-            HOFFSET(particles, y), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "z", 
-            HOFFSET(particles, z), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "vx", 
-            HOFFSET(particles, vx), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "vy", 
-            HOFFSET(particles, vy), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "vz", 
-            HOFFSET(particles, vz), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "t", 
-            HOFFSET(particles, t), H5T_NATIVE_DOUBLE);
-    /*
-     * Create the compound datatype for the file.  Because the standard
-     * types we are using for the file may have different sizes than
-     * the corresponding native types, we must manually calculate the
-     * offset of each member.
-     */
-    *filetype = H5Tcreate(H5T_COMPOUND, 8*7);
-    H5Tinsert (*filetype, "x", 0, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "y", 8, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "z", 8*2, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "vx", 8*3, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "vy", 8*4, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "vz", 8*5, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "t", 8*6, H5T_IEEE_F64BE);
-}
-
-/******************************************************************************
- * Read the flag to check if it is a re-run of previous simulation.
- * 
- * Return:
- *  rerun_flag: 0 for new run. 1 for re-run.
- ******************************************************************************/
-void read_rerun_flag(void)
-{
-    FILE *fp;
-    char buff[LEN_MAX];
-    int msg;
-    fp = fopen("init.dat", "r");
-    while (fgets(buff,LEN_MAX,fp) != NULL){
-        if (strstr(buff, "Check points info")) {
-            break;
-        }
-    };
-    msg = fscanf(fp, "re-run the simulation:%d\n", &rerun_flag);
-    if (msg != 1) {
-        printf("Failed to read the re-run flag.\n");
-        exit(1);
-    }
-    fclose(fp);
 }
 
 /******************************************************************************
@@ -619,42 +476,6 @@ void sort_particles_energy(int nptl, struct particles *ptl)
     free(index_ptl);
     free(ptl_ene);
     free(ptl_tmp);
-}
-
-/******************************************************************************
- * Assign n particles total to MPI process and get the array for accumulated 
- * particle number from MPI process 0 to mpi_size.
- *
- * Input:
- *  ntot: total # of particles.
- * Output:
- *  nptl: # of particles current MPI process.
- *  nptl_accumulate: global array for accumulated particle number.
- ******************************************************************************/
-void particle_broadcast(int ntot, int *nptl)
-{
-    int i;
-    if (mpi_rank == 0) {
-        for (i=0; i<mpi_size; i++) {
-            /* Number of particles for each process. */
-            nptl_accumulate[i] = ntot / mpi_size;
-            if (i < (ntot % mpi_size)) {
-                nptl_accumulate[i] += 1;
-            }
-        }
-        for (i=1; i<mpi_size; i++) {
-            /* Accumulation to get the shift. */
-            nptl_accumulate[i] += nptl_accumulate[i-1];
-        }
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(nptl_accumulate, mpi_size, MPI_INT, 0, MPI_COMM_WORLD);
-    if (mpi_rank == 0) {
-        *nptl = nptl_accumulate[0];
-    }
-    else {
-        *nptl = nptl_accumulate[mpi_rank]-nptl_accumulate[mpi_rank-1];
-    }
 }
 
 /******************************************************************************

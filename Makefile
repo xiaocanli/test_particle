@@ -13,7 +13,7 @@ LIBS = $(HDF5LIB) -ldl -lm
 # define the C source files
 # SRCS_CHAOTICB = cbmpi.c diagnostics.c force_free.c quick_sort.c StepperBS.c \
 # 	   tracking.c wlcs.c domain.c
-SRCS_CHAOTICB = cbmpi.c domain.c wlcs.c
+SRCS_CHAOTICB = main.c domain.c wlcs.c
 
 SRCS_MAGNETIC = magnetic_ene.c
 
@@ -30,7 +30,7 @@ OBJS_CHAOTICB = $(SRCS_CHAOTICB:.c=.o)
 OBJS_MAGNETIC = $(SRCS_MAGNETIC:.c=.o)
 
 # define the executable file 
-CHAOTICB = cbmpi
+CHAOTICB = test_particle
 MAGNETIC_ENE = eneb
 
 #

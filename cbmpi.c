@@ -22,41 +22,46 @@
 #include <time.h>
 #include <omp.h>
 #include <mpi.h>
-#include "Global.h"
-#include "cbmpi.h"
-#include "tracking.h"
-#include "diagnostics.h"
-#include "force_free.h"
-#include "wlcs.h"
+/* #include "Global.h" */
+#include "constants.h"
 #include "domain.h"
+/* #include "cbmpi.h" */
+/* #include "tracking.h" */
+/* #include "diagnostics.h" */
+/* #include "force_free.h" */
+/* #include "wlcs.h" */
 
-struct vfields *vfd_a, *vfd_b;
+/* struct vfields *vfd_a, *vfd_b; */
 
-double pmass, pcharge, charge_mass;
-int ierr, mpi_size, mpi_rank;
-int isystem; /* flag for wire-loop current systems */
-int charge_sign;
-int bc_flag; /* Flag for boundary conditions for particles. */
-int nptl_tot;
-int *nptl_accumulate;
-int ntest_ptl_tot = 400;
-int *nsteps_ptl_tracking;
+/* double pmass, pcharge, charge_mass; */
+/* int ierr, mpi_size, mpi_rank; */
+/* int isystem; /1* flag for wire-loop current systems *1/ */
+/* int charge_sign; */
+/* int bc_flag; /1* Flag for boundary conditions for particles. *1/ */
+/* int nptl_tot; */
+/* int *nptl_accumulate; */
+/* int ntest_ptl_tot = 400; */
+/* int *nsteps_ptl_tracking; */
 
 /******************************************************************************
  * Main program for test particle simulation.
  ******************************************************************************/
 int main(int argc, char **argv)
 {
+    int ierr, mpi_size, mpi_rank;
     int nptl, ipvd;
     double vthe, dt;
+    char config_file_name[LEN_MAX];
 
     ierr = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ipvd);
     /* ierr = MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &ipvd); */
     ierr = MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     ierr = MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
+    snprintf(config_file_name, "%s", "init.dat");
     struct domain simul_domain;
-    read_domain(mpi_rank, &simul_domain);
+    read_domain(mpi_rank, config_file_name, &simul_domain);
+
     /* assign_ptl(&nptl, &vthe); */
     /* struct particles *ptl; */
     /* ptl = (struct particles*)malloc(sizeof(struct particles)*nptl); */

@@ -10,15 +10,19 @@
 /******************************************************************************
  * Read simulation domain dimensions, flag for the systems to use.
  *
+ * Input:
+ *  mpi_rank: the rank of current MPI process.
+ *  config_file_name: the configuration file name.
+ *
  * Output:
  *  simul_domain: the domain information.
  ******************************************************************************/
-void read_domain(int mpi_rank, domain *simul_domain)
+void read_domain(int mpi_rank, char *config_file_name, domain *simul_domain)
 {
     FILE *fp;
     char *buff;
     int msg;
-    fp = fopen("init.dat", "r");
+    fp = fopen(config_file_name, "r");
     buff = (char *)malloc(sizeof(*buff)*LEN_MAX);
     while (fgets(buff, LEN_MAX, fp) != NULL) {
         //puts(buff);
@@ -76,8 +80,8 @@ void read_domain(int mpi_rank, domain *simul_domain)
     /*     printf("Failed to read the flat for the system to use.\n"); */
     /*     exit(1); */
     /* } */
-    /* fclose(fp); */
-    /* free(buff); */
+    fclose(fp);
+    free(buff);
 
     /* /1* Time domain information *1/ */
     /* tracking_time_method(&simul_domain.tmax); */

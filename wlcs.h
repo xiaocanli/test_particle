@@ -42,3 +42,4 @@ typedef struct wlcs{
 void read_wlcs(int mpi_rank, char *config_file_name);
 void getemf_wlcs(double x, double y, double z, double t, 
         struct emfields *emf_tot);
+void free_config();

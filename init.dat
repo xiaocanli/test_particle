@@ -15,8 +15,8 @@ zmax = 1.0
 ==============================
 
 ====== System info ===========
-0: test, 1: wlcs, 2: forcefree
-Flag for the system to use: 2
+0: test, 1: wlcs, 2: forcefree 3: MHD+test particle
+Flag for the system to use: 1
 Number of WLCSs: 8
 ==============================
 
@@ -27,8 +27,8 @@ Normalized B(Gauss): 1.0
 
 ====== Particle tracking ======
 Total tracking time (s): 10.0
+0 for fixed step, 1 for adaptive
 Tracking method to use: 0
-0 for fixed step, 1 for adaptve
 ===============================
 
 ======= Velocity fields =======

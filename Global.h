@@ -1,7 +1,4 @@
-#define I0 4.0E8
-//#define I0 4.0E7
-#define L0 6.96E8
-#define c0 3.0E10
+#include "emfields.h"
 
 #ifndef INF
 #define INF 2e10f
@@ -50,45 +47,19 @@ typedef struct param_ff {
     double B0, lambda0;
 } param_ff;
 
-/* Electromagnetic fields */
-typedef struct emfields {
-	double Bx, By, Bz;
-	double Ex, Ey, Ez;
-} emfields;
-
-/* Magnetic fields */
-typedef struct bfields {
-	double Bx, By, Bz;
-} bfields;
-
-/* Electric fields */
-typedef struct efields {
-	double Ex, Ey, Ez;
-} efields;
-
 /* Velocity fields */
 typedef struct vfields {
 	double vx, vy, vz;
 } vfields;
 
+#ifndef PTL_FIELDS_H
+#define PTL_FIELDS_H
 /* Nested structure for particle information output. */
 typedef struct ptl_fields {
     struct particles ptl;
     struct emfields emf;
 } ptl_fields;
-
-/* Wire-loop current systems */
-typedef struct wlcs{
-	double x_wr, y_wr, z_wr;
-	double costheta_wr, cosphi_wr;
-	double sintheta_wr, sinphi_wr;
-    double cur_wr, t0;
-	double x_lp, y_lp, z_lp, r_lp;
-	double cosalpha_lp, cosbeta_lp;
-	double sinalpha_lp, sinbeta_lp;
-    double cur_lp;
-    double omega;
-} wlcs;
+#endif
 
 extern int ierr, mpi_size, mpi_rank;
 extern int isystem; /* flag for the system to use */

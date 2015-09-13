@@ -19,38 +19,57 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "Global.h"
 #include "wlcs.h"
+#include "constants.h"
 
 struct wlcs *config;
 int nwlcs, iBessel;
+
+void print_config_wlcs();
+void transform(double *Ax, double *Ay, double *Az, double cos_euler1,
+        double sin_euler1, double cos_euler2, double sin_euler2);
+void reverse_tran(double *Ax, double *Ay, double *Az, double cos_euler1,
+        double sin_euler1, double cos_euler2, double sin_euler2);
+void getWireB(double x, double y, double z, int iconf, struct bfields *bmf);
+void getWire_Bessel(double x, double y, double z, int iconf, double t, 
+        struct emfields *emf);
+void getLoopB(double x, double y, double z, int iconf, struct bfields *bmf);
+void ellint(double k0, double *elle, double *ellf);
 
 /******************************************************************************
  * Read the configuration data of a wire-loop current system (WLCS).
  * Sin and Cos functions are calculated here since they  will be re-used. 
  *
+ * Input:
+ *  mpi_rank: the rank of current MPI process.
+ *  config_file_name: the configuration filename for current analysis.
+ *
  * Output:
  *  config: configuration array for wire-loop current system.
  ******************************************************************************/
-void read_wlcs()
+void read_wlcs(int mpi_rank, char *config_file_name)
 {
 	FILE *fp;
     double theta, phi, alpha, beta, omega;
-    char buff[200];
+    char *buff = (char *)malloc(sizeof(*buff)*LEN_MAX);
     int i, msg;
-    fp = fopen("init.dat", "r");
-    if (fgets(buff, 200, fp) != NULL) {
-        puts(buff);
-    } else {
-        printf("Error: hit the end the of file.\n");
-        exit(1);
+    fp = fopen(config_file_name, "r");
+    while (fgets(buff, LEN_MAX, fp) != NULL) {
+        //puts(buff);
+        if (strstr(buff, "Flag for the system to use") != NULL) {
+            break;
+        }
     }
     nwlcs = 1;
     msg = fscanf(fp, "Number of WLCSs:%d\n", &nwlcs);
     if (msg == 1) {
-        printf("Number of WLCSs: %d\n", nwlcs);
+        if (mpi_rank == 0) {
+            printf("Number of wire-loop-current-systems: %d\n", nwlcs);
+        }
     } else {
-        printf("Failed to read the number of WLCSs.\n");
+        if (mpi_rank == 0) {
+            printf("Failed to read the number of WLCSs.\n");
+        }
         exit(1);
     }
     fclose(fp);
@@ -58,9 +77,7 @@ void read_wlcs()
     config = (struct wlcs*)malloc(sizeof(struct wlcs)*nwlcs);
 
 	fp = fopen("init8_3l.dat","r");
-    if (fgets(buff, 200, fp)) {
-        
-    };
+    fgets(buff, LEN_MAX, fp);
 	for(i = 0; i<nwlcs; i++) {
         msg = fscanf(fp, "%lf", &(config[i].cur_wr));
         if (msg != 1) {
@@ -159,29 +176,44 @@ void read_wlcs()
         config[i].omega = omega;
     }
 
-//    for(i = 0; i < nwlcs; i++){
-//		printf("%lf ", config[i].cur_wr);
-//		printf("%lf ", config[i].x_wr);
-//		printf("%lf ", config[i].y_wr);
-//		printf("%lf ", config[i].z_wr);
-//		printf("%lf ", config[i].sintheta_wr);
-//		printf("%lf ", config[i].costheta_wr);
-//		printf("%lf ", config[i].sinphi_wr);
-//		printf("%lf ", config[i].cosphi_wr);
-//		printf("%lf ", config[i].t0);
-//		printf("%lf ", config[i].cur_lp);
-//		printf("%lf ", config[i].r_lp);
-//		printf("%lf ", config[i].x_lp);
-//		printf("%lf ", config[i].y_lp);
-//		printf("%lf ", config[i].z_lp);
-//		printf("%lf ", config[i].sinalpha_lp);
-//		printf("%lf ", config[i].cosalpha_lp);
-//		printf("%lf ", config[i].sinbeta_lp);
-//		printf("%lf ", config[i].cosbeta_lp);
-//        printf("%lf ", config[i].omega);
-//        printf("\n");
-//    }
 	fclose(fp);
+
+    if (mpi_rank == 0) {
+        // print_config_wlcs();
+    }
+
+    free(config);
+    free(buff);
+}
+
+/******************************************************************************
+ * Print the configuration information.
+ ******************************************************************************/
+void print_config_wlcs()
+{
+    int i;
+    for(i = 0; i < nwlcs; i++){
+		printf("%lf ", config[i].cur_wr);
+		printf("%lf ", config[i].x_wr);
+		printf("%lf ", config[i].y_wr);
+		printf("%lf ", config[i].z_wr);
+		printf("%lf ", config[i].sintheta_wr);
+		printf("%lf ", config[i].costheta_wr);
+		printf("%lf ", config[i].sinphi_wr);
+		printf("%lf ", config[i].cosphi_wr);
+		printf("%lf ", config[i].t0);
+		printf("%lf ", config[i].cur_lp);
+		printf("%lf ", config[i].r_lp);
+		printf("%lf ", config[i].x_lp);
+		printf("%lf ", config[i].y_lp);
+		printf("%lf ", config[i].z_lp);
+		printf("%lf ", config[i].sinalpha_lp);
+		printf("%lf ", config[i].cosalpha_lp);
+		printf("%lf ", config[i].sinbeta_lp);
+		printf("%lf ", config[i].cosbeta_lp);
+        printf("%lf ", config[i].omega);
+        printf("\n");
+    }
 }
 
 /******************************************************************************
@@ -193,8 +225,8 @@ void read_wlcs()
  * Output:
  *  emf: electromagnetic fields.
  ******************************************************************************/
-void getWire_Bessel(double x, double y, double z, 
-        int iconf, double t, struct emfields *emf)
+void getWire_Bessel(double x, double y, double z, int iconf, double t,
+        struct emfields *emf)
 {
 	double xp, yp, zp;
 	double x0, rho, const0;
@@ -203,7 +235,7 @@ void getWire_Bessel(double x, double y, double z,
 	double phi1, curI, omega;
     double t1;
 
-//    printf("x, y, z: %lf %lf %lf %lf\n", x, y, z, t);
+    /* printf("x, y, z: %lf %lf %lf %lf\n", x, y, z, t); */
 
     emf->Bx = 0.0; emf->By = 0.0; emf->Bz = 0.0;
     emf->Ex = 0.0; emf->Ey = 0.0; emf->Ez = 0.0;
@@ -215,15 +247,15 @@ void getWire_Bessel(double x, double y, double z,
     curI = config[iconf].cur_wr;
     omega = config[iconf].omega;
 
-    transform(&xp, &yp, &zp, 
+    transform(&xp, &yp, &zp,
             config[iconf].costheta_wr, config[iconf].sintheta_wr,
             config[iconf].cosphi_wr, config[iconf].sinphi_wr);
 	rho = sqrt(xp*xp + yp*yp); 
     x0 = 2.32E-2 * rho * omega; // page 9
-	//bj0 = bessj0(x0);
-	//by0 = bessy0(x0);
-	//bj1 = bessj1(x0);
-	//by1 = bessy1(x0);
+	/* bj0 = bessj0(x0); */
+	/* by0 = bessy0(x0); */
+	/* bj1 = bessj1(x0); */
+	/* by1 = bessy1(x0); */
     bj0 = j0(x0);
 	by0 = y0(x0);
     bj1 = j1(x0);
@@ -231,7 +263,7 @@ void getWire_Bessel(double x, double y, double z,
 
 	const0 = (curI*I0) / (5.0*rho*L0) * M_PI/2.0;
 
-//---------------------------------- Bx, By, Bz ----------------------------------
+/* ------------------------------- Bx, By, Bz ------------------------------- */
     wireB = const0 * x0 * (-by1*cos(omega * t1) + bj1 * sin(omega * t1));
 
     if(rho == 0.0){
@@ -252,7 +284,7 @@ void getWire_Bessel(double x, double y, double z,
             config[iconf].costheta_wr, config[iconf].sintheta_wr, 
             config[iconf].cosphi_wr, config[iconf].sinphi_wr);
 
-//---------------------------------- Ex, Ey, Ez ----------------------------------
+/* ------------------------------- Ex, Ey, Ez ------------------------------- */
 	wireE = -const0 * x0 * (by0*sin(omega * t1) + bj0*cos(omega * t1));
 
 	emf->Ex = 0.0;
@@ -265,7 +297,8 @@ void getWire_Bessel(double x, double y, double z,
 }
 
 /******************************************************************************
- * Calculate the magnetic field of one straight wire in time-independent condition.
+ * Calculate the magnetic field of one straight wire in time-independent
+ * condition.
  ******************************************************************************/
 void getWireB(double x, double y, double z, int iconf, struct bfields *bmf)
 {
@@ -322,7 +355,7 @@ void getLoopB(double x, double y, double z, int iconf, struct bfields *bmf)
 	
     bmf->Bx = 0.0; bmf->By = 0.0; bmf->Bz = 0.0; // initilization
 
-    // transformation from different coordinate systems	
+    /* transformation from different coordinate systems */	
 	xp = (x - config[iconf].x_lp) * L0;
 	yp = (y - config[iconf].y_lp) * L0;
 	zp = (z - config[iconf].z_lp) * L0;
@@ -338,8 +371,8 @@ void getLoopB(double x, double y, double z, int iconf, struct bfields *bmf)
 	rhop3 = sqrt(xp*xp + yp*yp);
     rhop1 = sqrt((rhop3 + al)*(rhop3 + al) + zp * zp);
 
-    // The magnetic field (Bpx3, Bpy3, Bpz3) is obtained in
-    // the frame defined by (xp, yp, zp)
+    /* The magnetic field (Bpx3, Bpy3, Bpz3) is obtained in */
+    /* the frame defined by (xp, yp, zp) */
 	k_tmp = sqrt(4.0*al*rhop3) / rhop1;
     ellint(k_tmp, &E_tmp, &F_tmp);
 	x_tmp = 2.0 * al / sqrt(al*al + zp*zp);
@@ -401,10 +434,8 @@ void ellint(double k, double *elle, double *ellf)
     else {
         i = 10;
     }
-//    printf("k = %f\n", k);
-//    printf("%d\n", i);
-// Basically, we have to use Taylor series expansion for different
-// intervals of m. The coefficients are given in Toshio's article.
+    /* Basically, we have to use Taylor series expansion for different */
+    /* intervals of m. The coefficients are given in Toshio's article. */
     switch(i) {
         case 0:
             Kj[0] = 1.591003453790792180; Ej[0] = +1.550973351780472328;
@@ -755,13 +786,13 @@ void getemf_wlcs(double x, double y, double z, double t, struct emfields *emf_to
     }
 
     emf_tot->Bz += B0;
-//    printf("%lf %lf %f %lf %lf %lf\n", emf_tot->Bx, emf_tot->By, emf_tot->Bz,
-//            emf_tot->Ex, emf_tot->Ey, emf_tot->Ez);
+    /* printf("%lf %lf %f %lf %lf %lf\n", emf_tot->Bx, emf_tot->By, */
+    /*         emf_tot->Bz, emf_tot->Ex, emf_tot->Ey, emf_tot->Ez); */
 }
 
 /******************************************************************************
  * Transform coodinates between different reference frames.
- * Only two of three Euler angles are considered for the wire-loop system.                                         
+ * Only two of three Euler angles are considered for the wire-loop system.
  ******************************************************************************/
 void transform(double *Ax, double *Ay, double *Az, 
         double cos_euler1, double sin_euler1, 
@@ -780,7 +811,7 @@ void transform(double *Ax, double *Ay, double *Az,
 
 /******************************************************************************
  * Transform fields between different reference frames. Only two of three Euler
- * angles are considered for the wire-loop system.                                         
+ * angles are considered for the wire-loop system.
  ******************************************************************************/
 void reverse_tran(double *Ax, double *Ay, double *Az, 
         double cos_euler1, double sin_euler1, 

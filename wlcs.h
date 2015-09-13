@@ -15,17 +15,30 @@
 * You should have received a copy of the GNU General Public License
 * along with CHAOTICB.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
-void getWireB(double x, double y, double z, int iconf, struct bfields *bmf);
-void getWire_Bessel(double x, double y, double z, int iconf, double t, 
-        struct emfields *emf);
-void getLoopB(double x, double y, double z, int iconf, struct bfields *bmf);
-void ellint(double k0, double *elle, double *ellf);
-void transform(double *Ax, double *Ay, double *Az, 
-        double cos_euler1, double sin_euler1, 
-        double cos_euler2, double sin_euler2);
-void reverse_tran(double *Ax, double *Ay, double *Az, 
-        double cos_euler1, double sin_euler1, 
-        double cos_euler2, double sin_euler2);
-void read_wlcs();
+#include "emfields.h"
+
+#ifndef WLCS_H
+#define WLCS_H
+
+/* Wire-loop current systems */
+typedef struct wlcs{
+	double x_wr, y_wr, z_wr;
+	double costheta_wr, cosphi_wr;
+	double sintheta_wr, sinphi_wr;
+    double cur_wr, t0;
+	double x_lp, y_lp, z_lp, r_lp;
+	double cosalpha_lp, cosbeta_lp;
+	double sinalpha_lp, sinbeta_lp;
+    double cur_lp;
+    double omega;
+} wlcs;
+
+#endif
+
+#ifndef I0
+#define I0 4.0E8
+#endif
+
+void read_wlcs(int mpi_rank, char *config_file_name);
 void getemf_wlcs(double x, double y, double z, double t, 
         struct emfields *emf_tot);

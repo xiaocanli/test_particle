@@ -22,7 +22,6 @@
 #include <time.h>
 #include <omp.h>
 #include <mpi.h>
-/* #include "Global.h" */
 #include "constants.h"
 #include "domain.h"
 /* #include "cbmpi.h" */
@@ -52,15 +51,20 @@ int main(int argc, char **argv)
     int nptl, ipvd;
     double vthe, dt;
     char config_file_name[LEN_MAX];
+    int err;
 
     ierr = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ipvd);
     /* ierr = MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &ipvd); */
     ierr = MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     ierr = MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-    snprintf(config_file_name, "%s", "init.dat");
+    snprintf(config_file_name, sizeof(config_file_name), "%s", "init.dat");
     struct domain simul_domain;
-    read_domain(mpi_rank, config_file_name, &simul_domain);
+    err = read_domain(mpi_rank, config_file_name, &simul_domain);
+    if (err < 0) {
+        ierr = MPI_Finalize();
+        return 0;
+    }
 
     /* assign_ptl(&nptl, &vthe); */
     /* struct particles *ptl; */

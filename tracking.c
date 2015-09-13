@@ -27,6 +27,7 @@
 #include "diagnostics.h"
 #include "StepperBS.h"
 #include "cbmpi.h"
+#include "force_free.h"
   
 int iadaptive; /* Tracking method is adaptive or nor. */
 int nt_out=100; /* Number of spectra outputs. */
@@ -96,7 +97,7 @@ void particle_tracking_fixed(int nptl, double dt,
 
     #pragma omp parallel
     {
-        int i, j;
+        int j;
         int tid = omp_get_thread_num();
         int num_threads = omp_get_num_threads();
         if (tid == 0) {
@@ -154,11 +155,9 @@ void ParticleTrackingOmpFF(int nptl, double dt, int tid, int estep,
 {
     double vfield_dt; // The time interval between slices of velocity field.
     int current_slice; // The time slice of velocity field currently in use.
-    int old_slice;
     int starting, ending;
     vfield_dt = simul_domain.tmax / (simul_grid.nt-1);
     current_slice = 0;
-    old_slice = current_slice;
     starting = 1;
     ending = floor(((current_slice+1.0)*vfield_dt)/dt);
     for (current_slice = 1; current_slice < simul_grid.nt; current_slice++) {

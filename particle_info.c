@@ -69,7 +69,7 @@ void read_ptlinfo(int *nptl_tot, double *vthe)
         exit(1);
     }
 
-    if (my_id == 0) {
+    if (mpi_rank == 0) {
         printf("========================================\n");
         printf("Total number of particles = %e\n", np);
         printf("Initial temperature = %f\n", temp);
@@ -138,7 +138,7 @@ void init_ptl(int nptl, double vthe, struct particles *ptl)
     zmax = simul_domain.zmax;
     tmp = sqrt(2.0) * vthe;
     //printf("Thermal speed: %f\n", vthe);
-    srand48((unsigned)time(NULL)+my_id*num_procs);
+    srand48((unsigned)time(NULL)+mpi_rank*mpi_size);
     if (isystem == 0) {
         double nvthe = 100.0;
         for (i = 0; i < nptl; i++) {
@@ -251,9 +251,9 @@ void assign_ptl(int *nptl, double *vthe)
 {
     /* Read from file the total particle number and particle thermal speed */
     read_ptlinfo(&nptl_tot, vthe);
-    if (my_id == 0) {
+    if (mpi_rank == 0) {
         printf("Tracking %d particles using %d processes\n", 
-                nptl_tot, num_procs);
+                nptl_tot, mpi_size);
     }
 
     /* Number of test particles for trajectory diagnostics. */
@@ -264,7 +264,7 @@ void assign_ptl(int *nptl, double *vthe)
     if (isystem == 0) {
         nptl_tot = ntest_ptl_tot;
     }
-    nptl_accumulate = (int *)malloc(sizeof(int)*num_procs);
+    nptl_accumulate = (int *)malloc(sizeof(int)*mpi_size);
     particle_broadcast(nptl_tot, nptl);
-    printf("MPI process %d will trace %d particles. \n", my_id, *nptl);
+    printf("MPI process %d will trace %d particles. \n", mpi_rank, *nptl);
 }

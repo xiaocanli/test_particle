@@ -33,7 +33,7 @@
 struct vfields *vfd_a, *vfd_b;
 
 double pmass, pcharge, charge_mass;
-int ierr, num_procs, my_id;
+int ierr, mpi_size, mpi_rank;
 int isystem; /* flag for wire-loop current systems */
 int charge_sign;
 int bc_flag; /* Flag for boundary conditions for particles. */
@@ -52,11 +52,11 @@ int main(int argc, char **argv)
 
     ierr = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ipvd);
     /* ierr = MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &ipvd); */
-    ierr = MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
-    ierr = MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    ierr = MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    ierr = MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
     struct domain simul_domain;
-    read_domain(my_id, &simul_domain);
+    read_domain(mpi_rank, &simul_domain);
     /* assign_ptl(&nptl, &vthe); */
     /* struct particles *ptl; */
     /* ptl = (struct particles*)malloc(sizeof(struct particles)*nptl); */
@@ -143,7 +143,7 @@ int main(int argc, char **argv)
 /*         exit(1); */
 /*     } */
 
-/*     if (my_id == 0) { */
+/*     if (mpi_rank == 0) { */
 /*         printf("========================================\n"); */
 /*         printf("Total number of particles = %e\n", np); */
 /*         printf("Initial temperature = %f\n", temp); */
@@ -213,7 +213,7 @@ int main(int argc, char **argv)
 /*     zmax = simul_domain.zmax; */
 /*     tmp = sqrt(2.0) * vthe; */
 /*     //printf("Thermal speed: %f\n", vthe); */
-/*     srand48((unsigned)time(NULL)+my_id*num_procs); */
+/*     srand48((unsigned)time(NULL)+mpi_rank*mpi_size); */
 /*     if (isystem == 0) { */
 /*         double nvthe = 100.0; */
 /*         for (i = 0; i < nptl; i++) { */
@@ -326,9 +326,9 @@ int main(int argc, char **argv)
 /* { */
 /*     /1* Read from file the total particle number and particle thermal speed *1/ */
 /*     read_ptlinfo(&nptl_tot, vthe); */
-/*     if (my_id == 0) { */
+/*     if (mpi_rank == 0) { */
 /*         printf("Tracking %d particles using %d processes\n", */ 
-/*                 nptl_tot, num_procs); */
+/*                 nptl_tot, mpi_size); */
 /*     } */
 
 /*     /1* Number of test particles for trajectory diagnostics. *1/ */
@@ -339,7 +339,7 @@ int main(int argc, char **argv)
 /*     if (isystem == 0) { */
 /*         nptl_tot = ntest_ptl_tot; */
 /*     } */
-/*     nptl_accumulate = (int *)malloc(sizeof(int)*num_procs); */
+/*     nptl_accumulate = (int *)malloc(sizeof(int)*mpi_size); */
 /*     particle_broadcast(nptl_tot, nptl); */
-/*     printf("MPI process %d will trace %d particles. \n", my_id, *nptl); */
+/*     printf("MPI process %d will trace %d particles. \n", mpi_rank, *nptl); */
 /* } */

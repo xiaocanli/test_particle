@@ -262,7 +262,7 @@ void get_param_ff(void)
         exit(1);
     }
     fclose(fp);
-    if (my_id == 0) {
+    if (mpi_rank == 0) {
         printf("The normalized magnetic field is %lf Gauss\n", param.B0);
         printf("1/Length scale (lambda) is %lf \n", param.lambda0);
     }
@@ -348,7 +348,7 @@ void dim_vfield(double *v0)
     simul_grid.dy = (simul_domain.ymax-simul_domain.ymin)/(simul_grid.ny-1.0);
     simul_grid.dz = (simul_domain.zmax-simul_domain.zmin)/(simul_grid.nz-1.0);
     simul_grid.dt = (simul_domain.tmax-simul_domain.tmin)/(simul_grid.nt-1.0);
-    if (my_id == 0) {
+    if (mpi_rank == 0) {
         printf("Dimensions of velocity fields (nx, ny, nz, nt): "
                 "(%d, %d, %d, %d)\n", simul_grid.nx, 
                 simul_grid.ny, simul_grid.nz, simul_grid.nt );

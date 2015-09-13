@@ -11,4 +11,4 @@ typedef struct domain{
 
 #endif
 
-void read_domain(int my_id, domain *simul_domain);
+void read_domain(int mpi_rank, domain *simul_domain);

@@ -62,7 +62,7 @@ void energy_spectrum(int nptl, int it, struct particles *ptl)
     for (i=0; i<nbins; i++) {
         espectrum[i] = 0;
     }
-    if (my_id == 0) {
+    if (mpi_rank == 0) {
         espect_tot = (double *)malloc(sizeof(double)*nbins);
         ebins = (double *)malloc(sizeof(double)*nbins);
         einterval = (double *)malloc(sizeof(double)*nbins);
@@ -94,7 +94,7 @@ void energy_spectrum(int nptl, int it, struct particles *ptl)
 
     /* Communication with different processes. */
     MPI_Reduce(espectrum, espect_tot, nbins, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    if (my_id == 0 ) {
+    if (mpi_rank == 0 ) {
         if (it == 0) {
             fp = fopen("espectrum.dat", "w");
             for (i=0; i<nbins; i++) {
@@ -235,7 +235,7 @@ void espectrum_collect(double espectrum[][nbins],
     /* Reduce the spectrum to MPI process 0 */
     MPI_Reduce(espectrum, espect_tot, nbins*nt_out, 
             MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    if (my_id == 0 ) {
+    if (mpi_rank == 0 ) {
         fp = fopen(fname, "a");
 //        for (j=0; j<nbins; j++) {
 //            fprintf(fp, "%20.14e ", ebins[j]);
@@ -263,7 +263,7 @@ void espectrum_collect(double espectrum[][nbins],
 void particle_info(int iptl, int ntraj_shift, int ntraj, struct particles *ptl)
 {
     FILE *fp;
-    if (my_id == 0) {
+    if (mpi_rank == 0) {
         if (ntraj_shift == 0) {
             fp = fopen("ptl_info.bin", "w");
         } else {
@@ -358,10 +358,10 @@ void save_particles_fields(int nptl, struct particles *ptl,
 
     /* Count and offset in the memory. */
     count[0] = nptl;
-    if (my_id == 0) {
+    if (mpi_rank == 0) {
         offset[0] = 0;
     } else {
-        offset[0] = naccumulate[my_id-1];
+        offset[0] = naccumulate[mpi_rank-1];
     }
 
     plist_id = H5Pcreate(H5P_DATASET_XFER);
@@ -449,10 +449,10 @@ void read_particles(int nptl, struct particles *ptl, char *fname)
 
     /* Count and offset in the memory. */
     count[0] = nptl;
-    if (my_id == 0) {
+    if (mpi_rank == 0) {
         offset[0] = 0;
     } else {
-        offset[0] = nptl_accumulate[my_id-1];
+        offset[0] = nptl_accumulate[mpi_rank-1];
     }
 
     memspace = H5Screate_simple(rank, count, NULL);
@@ -623,7 +623,7 @@ void sort_particles_energy(int nptl, struct particles *ptl)
 
 /******************************************************************************
  * Assign n particles total to MPI process and get the array for accumulated 
- * particle number from MPI process 0 to num_procs.
+ * particle number from MPI process 0 to mpi_size.
  *
  * Input:
  *  ntot: total # of particles.
@@ -634,26 +634,26 @@ void sort_particles_energy(int nptl, struct particles *ptl)
 void particle_broadcast(int ntot, int *nptl)
 {
     int i;
-    if (my_id == 0) {
-        for (i=0; i<num_procs; i++) {
+    if (mpi_rank == 0) {
+        for (i=0; i<mpi_size; i++) {
             /* Number of particles for each process. */
-            nptl_accumulate[i] = ntot / num_procs;
-            if (i < (ntot % num_procs)) {
+            nptl_accumulate[i] = ntot / mpi_size;
+            if (i < (ntot % mpi_size)) {
                 nptl_accumulate[i] += 1;
             }
         }
-        for (i=1; i<num_procs; i++) {
+        for (i=1; i<mpi_size; i++) {
             /* Accumulation to get the shift. */
             nptl_accumulate[i] += nptl_accumulate[i-1];
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(nptl_accumulate, num_procs, MPI_INT, 0, MPI_COMM_WORLD);
-    if (my_id == 0) {
+    MPI_Bcast(nptl_accumulate, mpi_size, MPI_INT, 0, MPI_COMM_WORLD);
+    if (mpi_rank == 0) {
         *nptl = nptl_accumulate[0];
     }
     else {
-        *nptl = nptl_accumulate[my_id]-nptl_accumulate[my_id-1];
+        *nptl = nptl_accumulate[mpi_rank]-nptl_accumulate[mpi_rank-1];
     }
 }
 
@@ -720,17 +720,17 @@ void trajectory_diagnostics(int nptl, double dt, struct particles *ptl)
     ntraj_accum = (int *)malloc(sizeof(int)*ntest_ptl);
     init_ptl_traj(nptl, ntest_ptl, &ntraj, ptl, ptl_traj);
 
-    ntraj_accum_global = (int *)malloc(sizeof(int)*num_procs);
+    ntraj_accum_global = (int *)malloc(sizeof(int)*mpi_size);
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Gather(&ntraj, 1, MPI_INT, ntraj_accum_global, 
             1, MPI_INT, 0, MPI_COMM_WORLD);
-    if (my_id==0) {
-        for (i=1; i<num_procs; i++) {
+    if (mpi_rank==0) {
+        for (i=1; i<mpi_size; i++) {
             ntraj_accum_global[i] += ntraj_accum_global[i-1];
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(ntraj_accum_global, num_procs, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(ntraj_accum_global, mpi_size, MPI_INT, 0, MPI_COMM_WORLD);
 
     /* Time evolution of particles. */
     ptl_time = (struct particles *)malloc(sizeof(particles)*ntraj);
@@ -747,7 +747,7 @@ void trajectory_diagnostics(int nptl, double dt, struct particles *ptl)
     }
 
     particle_tracking_hybrid(ntest_ptl, dt, 1, ptl_traj);
-    save_particles_fields(ntraj, ptl_time, ntraj_accum_global[num_procs-1], 
+    save_particles_fields(ntraj, ptl_time, ntraj_accum_global[mpi_size-1], 
             ntraj_accum_global, "particle_diagnostics.h5");
 
     free(ntraj_accum_global);

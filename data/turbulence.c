@@ -21,7 +21,7 @@
 #define dimxyz 256
 #define nslice 64
 
-int ierr, num_procs, my_id;
+int ierr, mpi_size, mpi_rank;
 int izs, ize, nzdim;
 
 void frequency(int nx, int ny, int nz, int nt);
@@ -59,19 +59,19 @@ int main(int argc, char **argv)
     double vxmax, vymax, vzmax, vmax;
 
     ierr = MPI_Init(&argc, &argv);
-    ierr = MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
-    ierr = MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    ierr = MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    ierr = MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-    nzdim = nz / num_procs;
-    izs = nzdim*my_id;
+    nzdim = nz / mpi_size;
+    izs = nzdim*mpi_rank;
     ize = izs + nzdim;
-    if (my_id < (nzdim % num_procs)) {
+    if (mpi_rank < (nzdim % mpi_size)) {
         ++nzdim;
-        izs = izs + my_id;
+        izs = izs + mpi_rank;
         ize = izs + nzdim;
     }
 
-    printf("id, izs, ize: %d %d %d\n", my_id, izs, ize);
+    printf("id, izs, ize: %d %d %d\n", mpi_rank, izs, ize);
 
     printf("Generating turbulent velocity field.\n");
     frequency(nx, ny, nz, nt);
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
     vmax = MAX(vmax, vzmax);
 
     /* Save the maximum velocity to file. */
-    if (my_id==0) {
+    if (mpi_rank==0) {
         FILE *fp;
         fp = fopen("vmax.dat", "w");
         fprintf(fp, "%lf %lf %lf %lf\n", vxmax, vymax, vzmax, vmax);
@@ -154,10 +154,10 @@ void frequency(int nx, int ny, int nz, int nt)
     plist_id = H5Pcreate(H5P_DATASET_XFER);
     H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 
-    srand48((unsigned)time(NULL)+my_id*num_procs);
+    srand48((unsigned)time(NULL)+mpi_rank*mpi_size);
     //srand48(time(NULL));
-    for (it=my_id; it<nt; it=it+num_procs) {
-        printf("id, it: %d %d\n", my_id, it);
+    for (it=mpi_rank; it<nt; it=it+mpi_size) {
+        printf("id, it: %d %d\n", mpi_rank, it);
         l = ((double)it)/nt;
         if (l > nt/2) l -= 1.0;
         GenerateVelocityPhase(nx, ny, nz, nt, it, l, 
@@ -643,13 +643,13 @@ void velocity(int nx, int ny, int nz, int nt, char *qname, double *data_max)
     for (i=0; i<len; i++) {
         if (rout[i]>dmax) dmax = rout[i];
     }
-    double *dmax_array = (double *)malloc(sizeof(double)*num_procs);
+    double *dmax_array = (double *)malloc(sizeof(double)*mpi_size);
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Gather(&dmax, 1, MPI_DOUBLE, dmax_array,
             1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     *data_max = 0.0;
-    if (my_id == 0) {
-        for (i=0; i<num_procs; i++) {
+    if (mpi_rank == 0) {
+        for (i=0; i<mpi_size; i++) {
             if (abs(dmax_array[i]>*data_max)) {
                 *data_max = abs(dmax_array[i]);
             }
@@ -748,7 +748,7 @@ void GetLinearDistribution(long int sz, double dmin, double dmax,
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Reduce(distribution, distribution_tot, nbands+1, MPI_INT, 
             MPI_SUM, 0, MPI_COMM_WORLD);
-    if (my_id==0) {
+    if (mpi_rank==0) {
         FILE *fp;
         char fname[256];
         snprintf(fname, sizeof(fname), "%s%s", qname, ".dat");
@@ -796,7 +796,7 @@ void GetKineticEnergyDensity(int local_n0, int nt, int nz,
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Gather(kene, local_n0, MPI_DOUBLE, kene_all,
             local_n0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    if (my_id==0) {
+    if (mpi_rank==0) {
         FILE *fp;
         fp = fopen("kinetic_energy.dat", "w");
         for (i=0; i<nt; i++) {

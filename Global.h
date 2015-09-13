@@ -90,7 +90,7 @@ typedef struct wlcs{
     double omega;
 } wlcs;
 
-extern int ierr, num_procs, my_id;
+extern int ierr, mpi_size, mpi_rank;
 extern int isystem; /* flag for the system to use */
 //extern struct particles *ptl;
 extern struct wlcs *config;

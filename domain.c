@@ -13,7 +13,7 @@
  * Output:
  *  simul_domain: the domain information.
  ******************************************************************************/
-void read_domain(int my_id, domain *simul_domain)
+void read_domain(int mpi_rank, domain *simul_domain)
 {
     FILE *fp;
     char *buff;
@@ -56,7 +56,7 @@ void read_domain(int my_id, domain *simul_domain)
         printf("Failed to read zmax.\n");
         exit(1);
     }
-    if (my_id == 0) {
+    if (mpi_rank == 0) {
         printf("=========== Simulation Domain ===========\n");
         printf("xmin, xmax = %f %f\n", simul_domain->xmin, simul_domain->xmax);
         printf("ymin, ymax = %f %f\n", simul_domain->ymin, simul_domain->ymax);
@@ -102,7 +102,7 @@ void read_domain(int my_id, domain *simul_domain)
     /* } */
 
     /* /1* Print the corresponding system information. *1/ */
-    /* if (my_id == 0) { */
+    /* if (mpi_rank == 0) { */
     /*     if (isystem == 0) { */
     /*         printf("Using system for test case...\n"); */
     /*     } */
@@ -150,7 +150,7 @@ void read_domain(int my_id, domain *simul_domain)
 /*         printf("Failed to read tracking method to use.\n"); */
 /*         exit(1); */
 /*     } */
-/*     if (my_id == 0) { */
+/*     if (mpi_rank == 0) { */
 /*         printf("Total particle tracking time: %lf\n", *tott); */
 /*         if (iadaptive == 0) { */
 /*             printf("Fixed time step is used.\n"); */

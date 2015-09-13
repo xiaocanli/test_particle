@@ -39,14 +39,6 @@ typedef struct particles{
     double vx, vy, vz, t;
 } particles;
 
-/* Simulation domain */
-typedef struct domain{
-    double xmin, xmax;
-    double ymin, ymax;
-    double zmin, zmax;
-    double tmin, tmax;
-} domain;
-
 /* Domain information for grids */
 typedef struct grids{
     int nx, ny, nz, nt;
@@ -103,7 +95,6 @@ extern int isystem; /* flag for the system to use */
 //extern struct particles *ptl;
 extern struct wlcs *config;
 extern int nwlcs, iBessel;
-extern struct domain simul_domain;
 extern struct grids simul_grid;
 extern struct param_ff param;
 extern double pmass, pcharge, charge_mass;

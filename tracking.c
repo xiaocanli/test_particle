@@ -542,53 +542,6 @@ void particle_tracking_hybrid(int nptl, double dt,
 }
 
 /******************************************************************************
- * Read from init.dat to get the total particle tracking time and the tracking
- * method to use.
- *
- * Output:
- *  tott: the total particle tracking time.
- *  iadaptive: flag for tracking method to use.
- *             0 for fixed step. 1 for adaptive step.
- ******************************************************************************/
-void tracking_time_method(double *tott)
-{
-    char buff[LEN_MAX];
-    FILE *fp;
-    int msg;
-    fp = fopen("init.dat", "r");
-    while (fgets(buff, LEN_MAX, fp) != NULL) {
-        //puts(buff);
-        if (strstr(buff, "Particle tracking") != NULL) {
-            break;
-        }
-    }
-    msg = fscanf(fp, "Total tracking time (s):%lf\n", tott);
-    if (msg != 1) {
-        printf("Failed to read the total tracking time.\n");
-        exit(1);
-    }
-    msg = fscanf(fp, "Tracking method to use: %d\n", &iadaptive);
-    if (msg != 1) {
-        printf("Failed to read tracking method to use.\n");
-        exit(1);
-    }
-    if (my_id == 0) {
-        printf("Total particle tracking time: %lf\n", *tott);
-        if (iadaptive == 0) {
-            printf("Fixed time step is used.\n");
-        }
-        else if (iadaptive == 1) {
-            printf("Adaptive time step is used.\n");
-        }
-        else {
-            printf("ERROR: wrong flag for time step.");
-            exit(0);
-        }
-    }
-    fclose(fp);
-}
-
-/******************************************************************************
  * Dense output time points for adaptive particle tracking method.
  *
  * Input:

@@ -80,7 +80,7 @@ void getb_ff(double x, double y, double z, double t, struct bfields *bmf)
     lambda0 = 1.0;
     ffA = 1.0;
     ffB = sqrt(2.0/3.0);
-    ffB = sqrt(1.0/3.0);
+    ffC = sqrt(1.0/3.0);
 
     bmf->Bx = ffA*sin(lambda0*z) + ffC*cos(lambda0*y);
     bmf->By = ffB*sin(lambda0*x) + ffA*cos(lambda0*z);

@@ -24,19 +24,31 @@
 
 void get_spectrum_info(int mpi_rank, char *config_file_name, int *nbins,
         int *nt_out);
+
 void calc_energy_spectrum(int mpi_rank, int nptl, struct particles *ptl,
         int nbins, int nt_out, double pmass, int bc_flag);
+
 void save_particles_fields(int mpi_rank, int nptl, struct particles *ptl,
         int ntot, int *naccumulate, char *fname, int system_type);
-/* void particle_info(int iptl, int ntraj_shift, */ 
-/*         int ntraj, struct particles *ptl); */
-/* void ptl_energy_adaptive(double *ydense, int it1, int it2, int tid, */ 
-/*         double espectrum[][nbins*nt_out]); */
-/* void ptl_energy_fixed(int ptl_id, int it, int tid, */ 
-/*         struct particles *ptl, double espectrum[][nbins*nt_out]); */
-/* void espectrum_collect(double espectrum[][nbins], */ 
-/*         double espect_tot[][nbins], char *fname); */
-/* void sort_particles_energy(int nptl, struct particles *ptl); */
-/* void init_ptl_traj(int nptl, int ntest_ptl, int *ntraj, */ 
-/*         struct particles *ptl, struct particles *ptl_traj); */
-/* void trajectory_diagnostics(int nptl, double dt, struct particles *ptl); */
+
+void save_particle_info(int mpi_rank, int iptl, int ntraj_shift, int ntraj,
+        struct particles *ptl);
+
+void ptl_energy_adaptive(double *ydense, int t1, int t2, int tid, int nbins,
+        int nt_out, double pmass, int nvar, double espectrum[][nbins*nt_out]);
+
+void ptl_energy_fixed(int ptl_id, int it, int tid, struct particles *ptl, 
+        int nbins, int nt_out, double pmass, double espectrum[][nbins*nt_out]);
+
+void collect_espectrum(int mpi_rank, int nbins, int nt_out,
+        double espectrum[][nbins], double espect_tot[][nbins], char *fname);
+
+void sort_particles_energy(int mpi_rank, int nptl, double pmass,
+        int *nptl_accumulate, struct particles *ptl, int *nsteps_ptl_tracking);
+
+void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
+        particles *ptl, int *ntraj, int *ntraj_accum, particles *ptl_traj);
+
+void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
+        double pmass, int nptl_traj_tot, int system_type, struct particles *ptl,
+        int *nptl_accumulate, int *nsteps_ptl_tracking);

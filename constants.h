@@ -20,3 +20,8 @@
 #ifndef CHARGE_MASS_PROTON
 #define CHARGE_MASS_PROTON 9.58E3
 #endif
+
+/* Rest energy of proton in MeV */
+#ifndef REST_ENE_PROTON
+#define REST_ENE_PROTON 938.272046
+#endif

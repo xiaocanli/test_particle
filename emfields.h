@@ -1,3 +1,5 @@
+#include "hdf5.h"
+
 #ifndef EMFIELDS_H
 #define EMFIELDS_H
 /* Electromagnetic fields */
@@ -22,3 +24,7 @@ typedef struct efields {
 	double Ex, Ey, Ez;
 } efields;
 #endif
+
+void get_emf(double x, double y, double z, double t, int system_type,
+        struct emfields *emf);
+void create_fields_ctype(hid_t *memtype, hid_t *filetype);

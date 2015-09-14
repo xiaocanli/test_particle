@@ -2,3 +2,4 @@ cbmpi
 *.o
 eneb
 test_particle
+data/

@@ -24,11 +24,11 @@
 #include "constants.h"
 #include "domain.h"
 #include "particle_info.h"
+#include "diagnostics.h"
+#include "wlcs.h"
 /* #include "cbmpi.h" */
 /* #include "tracking.h" */
-/* #include "diagnostics.h" */
 /* #include "force_free.h" */
-/* #include "wlcs.h" */
 
 /* struct vfields *vfd_a, *vfd_b; */
 
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     int ipvd, err, system_type, tracking_method;
     int nptl_tot, bc_flag, charge_sign, nptl_traj_tot;
     double ptemp, pmass, pcharge, charge_mass, vthe;
-    int nptl;
+    int nptl, nbins, nt_out;
 
     ierr = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ipvd);
     /* ierr = MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &ipvd); */
@@ -83,13 +83,16 @@ int main(int argc, char **argv)
     ptl = (struct particles*)malloc(sizeof(struct particles)*nptl);
     initialize_partilces(mpi_rank, mpi_size, config_file_name, simul_domain,
             nptl, vthe, system_type, nptl_accumulate, ptl);
+
+    get_spectrum_info(mpi_rank, config_file_name, &nbins, &nt_out);
+
     /* Number of steps each particle is tracked. */
     int *nsteps_ptl_tracking = (int *)malloc(sizeof(int)*nptl);
 
-    /* dt = 1.0E-5; */
-    /* energy_spectrum(nptl, 0, ptl); */
-    /* save_particles_fields(nptl, ptl, nptl_tot, */ 
-    /*         nptl_accumulate, "particles_fields_init.h5"); */
+    double dt = 1.0E-5;
+    calc_energy_spectrum(mpi_rank, nptl, ptl, nbins, nt_out, pmass, bc_flag);
+    save_particles_fields(mpi_rank, nptl, ptl, nptl_tot, nptl_accumulate,
+            "data/particles_fields_init.h5", system_type);
     /* particle_tracking_hybrid(nptl, dt, 0, ptl); */
     /* trajectory_diagnostics(nptl, dt, ptl); */
 

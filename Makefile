@@ -13,7 +13,8 @@ LIBS = $(HDF5LIB) -ldl -lm
 # define the C source files
 # SRCS_CHAOTICB = cbmpi.c diagnostics.c force_free.c quick_sort.c StepperBS.c \
 # 	   tracking.c wlcs.c domain.c
-SRCS_CHAOTICB = main.c domain.c wlcs.c particle_info.c
+SRCS_CHAOTICB = main.c domain.c wlcs.c particle_info.c diagnostics.c emfields.c \
+				quick_sort.c
 
 SRCS_MAGNETIC = magnetic_ene.c
 

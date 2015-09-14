@@ -22,56 +22,55 @@
 #include <time.h>
 #include <mpi.h>
 #include "hdf5.h"
-#include "Global.h"
-#include "cbmpi.h"
+#include "constants.h"
 #include "diagnostics.h"
+#include "particle_info.h"
+#include "emfields.h"
 #include "quick_sort.h"
-#include "tracking.h"
+/* #include "tracking.h" */
 
-/* Maximum number of trajectory points for one ptl. */
-#define MAX_TP 1.0E6
-
-int rerun_flag;
+double emin, emax, logemin, logemax, logde;
+int energy_type;
+/* All of the particle trajectories are output in nsteps_output frames */
+/* init_ptl_traj may update it depending on the maximum particle tracking steps */
 int nsteps_output = 10;
-int *ntraj_accum;
-int *ntraj_accum_global;
-struct particles *ptl_time;
 
-void create_fields_ctype(hid_t *memtype, hid_t *filetype);
-void create_particles_ctype(hid_t *memtype, hid_t *filetype);
+
 /******************************************************************************
- * Calculate particle energy spectrum for fixed step size.
+ * Calculate particle energy spectrum for the initial condition.
  *
  * Input:
+ *  mpi_rank: the rank of current MPI process.
  *  nptl: particle number for this process.
- *  it: current time point.
  *  ptl: structure array of particles.
- * Output:
- *  espectrum: the particle energy spectrum.
+ *  nbins: number of energy bins.
+ *  nt_out: number of diagnostic time frames.
+ *  pmass: particle mass in the unit of proton mass.
+ *  bc_flag: boundary condition flag.
  ******************************************************************************/
-void energy_spectrum(int nptl, int it, struct particles *ptl)
+void calc_energy_spectrum(int mpi_rank, int nptl, struct particles *ptl,
+        int nbins, int nt_out, double pmass, int bc_flag)
 {
-    //const double de=(emax-emin)/(nbins-2.0); // Energy interval.
     double beta, gama, ene, rest_ene;
     double *ebins, *einterval;
     double *espectrum, *espect_tot;
     int i, ibin;
     FILE *fp;
-    rest_ene = rest_ene_proton*pmass;
+    rest_ene = REST_ENE_PROTON * pmass;
     espectrum = (double *)malloc(sizeof(double)*nbins);
-    for (i=0; i<nbins; i++) {
+    for (i = 0; i < nbins; i++) {
         espectrum[i] = 0;
     }
     if (mpi_rank == 0) {
         espect_tot = (double *)malloc(sizeof(double)*nbins);
         ebins = (double *)malloc(sizeof(double)*nbins);
         einterval = (double *)malloc(sizeof(double)*nbins);
-        for (i=0; i<nbins; i++) {
+        for (i = 0; i < nbins; i++) {
             espect_tot[i] = 0.0;
         }
-        ebins[0] = 0.5*emin;
+        ebins[0] = 0.5 * emin;
         einterval[0] = emin;
-        for (i=1; i<nbins-1; i++) {
+        for (i = 1; i < nbins-1; i++) {
             ebins[i] = exp(logemin+logde*(i-0.5));
             einterval[i] = exp(logemin)*(exp(logde*i)-exp(logde*(i-1)));
         }
@@ -79,11 +78,11 @@ void energy_spectrum(int nptl, int it, struct particles *ptl)
         einterval[nbins-1] = exp(logemin)*(exp(logde*nbins)-exp(logde*(nbins-1)));
     }
 
-    for (i=0; i<nptl; i++) {
+    for (i = 0; i < nptl; i++) {
         beta = sqrt(ptl[i].vx*ptl[i].vx+ptl[i].vy*ptl[i].vy+ptl[i].vz*ptl[i].vz);
-        gama = 1.0/sqrt(1.0-beta*beta);
-        ene = (gama-1.0)*rest_ene;
-        ibin = (log(ene)-logemin)/logde;
+        gama = 1.0 / sqrt(1.0-beta*beta);
+        ene = (gama - 1.0) * rest_ene;
+        ibin = (log10(ene) - logemin)/logde;
         if (ibin < 0) {
             ibin = 0;
         } else if (ibin > nbins-1) {
@@ -94,43 +93,33 @@ void energy_spectrum(int nptl, int it, struct particles *ptl)
 
     /* Communication with different processes. */
     MPI_Reduce(espectrum, espect_tot, nbins, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
     if (mpi_rank == 0 ) {
-        if (it == 0) {
-            fp = fopen("espectrum.dat", "w");
-            for (i=0; i<nbins; i++) {
+        fp = fopen("data/espectrum.dat", "w");
+        for (i = 0; i < nbins; i++) {
+            fprintf(fp, "%20.14e ", ebins[i]);
+        }
+        fprintf(fp, "\n");
+        for (i = 0; i < nbins; i++) {
+            espectrum[i] = espect_tot[i] / einterval[i];
+            fprintf(fp, "%20.14e ", espectrum[i]);
+        }
+        fprintf(fp, "\n");
+        fclose(fp);
+        /* If it is open boundary condition, tracking energy spectrum */
+        /* for escaping particles. */
+        if (bc_flag == 1) {
+            fp = fopen("data/espect_escape.dat", "w");
+            for (i = 0; i < nbins; i++) {
                 fprintf(fp, "%20.14e ", ebins[i]);
             }
             fprintf(fp, "\n");
-            for (i=0; i<nbins; i++) {
-                espectrum[i] = espect_tot[i] / einterval[i];
-                //printf("%20.14e %20.14e\n", einterval[i], espectrum[i]);
-                fprintf(fp, "%20.14e ", espectrum[i]);
+            for (i = 0; i < nbins; i++) {
+                fprintf(fp, "%20.14e ", 0.0);
             }
             fprintf(fp, "\n");
             fclose(fp);
-            /* If it is open boundary condition, tracking energy spectrum
-             * for escaping particles. */
-            if (bc_flag == 1) {
-                fp = fopen("espect_escape.dat", "w");
-                for (i=0; i<nbins; i++) {
-                    fprintf(fp, "%20.14e ", ebins[i]);
-                }
-                fprintf(fp, "\n");
-                for (i=0; i<nbins; i++) {
-                    fprintf(fp, "%20.14e ", 0.0);
-                }
-                fprintf(fp, "\n");
-                fclose(fp);
-            }
-        } 
-        //else {
-        //    fp = fopen("espectrum.dat", "a");
-        //    for (i=0; i<nbins; i++) {
-        //        espectrum[i] = espect_tot[i] / einterval[i];
-        //        fprintf(fp, "%20.14e ", espectrum[i]);
-        //    }
-        //    fprintf(fp, "\n");
-        //}
+        }
         free(espect_tot);
         free(ebins);
         free(einterval);
@@ -145,25 +134,31 @@ void energy_spectrum(int nptl, int it, struct particles *ptl)
  * Input:
  *  ydense: dense outputs from particle tracking procedure, containing particle
  *      spatial positions, velocities.
- *  it1, it2: dense output starting and ending time points.
+ *  t1, t2: dense output starting and ending time points.
+ *  tid: current OpenMP thread ID.
+ *  nbins: number of energy bins.
+ *  nt_out: number of time output frames.
+ *  pmass: particle mass in the unit of proton mass.
+ *  nvar: variable for dense output.
+ *  pmass: particle mass in the unit of proton mass.
+ *
  * Output:
  *  espectrum is updated.
  ******************************************************************************/
-void ptl_energy_adaptive(double *ydense, int it1, int it2, int tid, 
-        double espectrum[][nbins*nt_out])
+void ptl_energy_adaptive(double *ydense, int t1, int t2, int tid, int nbins,
+        int nt_out, double pmass, int nvar, double espectrum[][nbins*nt_out])
 {
     double beta, gama, ene, rest_ene;
     int i, j, ibin;
 
-    rest_ene = rest_ene_proton*pmass;
-    for (i=it2; i<it1; i++) {
-        j = nvar*(i-1);
+    rest_ene = REST_ENE_PROTON * pmass;
+    for (i = t2; i < t1; i++) {
+        j = nvar * (i-1);
         beta = sqrt(ydense[j+3]*ydense[j+3]+ydense[j+4]*ydense[j+4]+
                 ydense[j+5]*ydense[j+5]);
-        gama = 1.0/sqrt(1.0-beta*beta);
-        ene = (gama-1.0)*rest_ene;
-        ibin = floor((log(ene)-logemin)/logde);
-        //printf("Energy bin %d\n", ibin);
+        gama = 1.0 / sqrt(1.0-beta*beta);
+        ene = (gama-1.0) * rest_ene;
+        ibin = floor((log10(ene)-logemin)/logde);
         if (ibin < 0) {
             ibin = 0;
         } else if (ibin > nbins-1) {
@@ -182,23 +177,26 @@ void ptl_energy_adaptive(double *ydense, int it1, int it2, int tid,
  *  it: the time point when updating the energy spectrum.
  *  tid: current OpenMP thread ID.
  *  ptl: structure array of particles.
+ *  nbins: number of energy bins.
+ *  nt_out: number of time output frames.
+ *  pmass: particle mass in the unit of proton mass.
+ *
  * Output:
  *  espectrum is updated.
  ******************************************************************************/
 void ptl_energy_fixed(int ptl_id, int it, int tid, struct particles *ptl, 
-        double espectrum[][nbins*nt_out])
+        int nbins, int nt_out, double pmass, double espectrum[][nbins*nt_out])
 {
     double beta, gama, ene, rest_ene;
     int ibin;
 
-    rest_ene = rest_ene_proton*pmass;
+    rest_ene = REST_ENE_PROTON * pmass;
     beta = sqrt(ptl[ptl_id].vx*ptl[ptl_id].vx + 
             ptl[ptl_id].vy*ptl[ptl_id].vy + 
             ptl[ptl_id].vz*ptl[ptl_id].vz);
-    gama = 1.0/sqrt(1.0-beta*beta);
-    ene = (gama-1.0)*rest_ene;
-    ibin = floor((log(ene)-logemin)/logde);
-    //printf("Energy bin %d\n", ibin);
+    gama = 1.0 / sqrt(1.0-beta*beta);
+    ene = (gama-1.0) * rest_ene;
+    ibin = floor((log10(ene)-logemin)/logde);
     if (ibin < 0) {
         ibin = 0;
     } else if (ibin > nbins-1) {
@@ -212,39 +210,35 @@ void ptl_energy_fixed(int ptl_id, int it, int tid, struct particles *ptl,
  * energy spectrum.
  *
  * Input:
+ *  mpi_rank: the rank of current MPI process.
  *  espectrum: particle energy spectrum from each MPI process.
+ *  nbins: number of energy bins.
+ *  nt_out: number of time output frames.
+ *  fname: the filename for output.
+ *
  * Output:
  *  espect_tot: total particle energy spectrum.
  ******************************************************************************/
-void espectrum_collect(double espectrum[][nbins], 
-        double espect_tot[][nbins], char *fname)
+void collect_espectrum(int mpi_rank, int nbins, int nt_out,
+        double espectrum[][nbins], double espect_tot[][nbins], char *fname)
 {
-//    double ebins[nbins];
     double einterval[nbins];
     FILE *fp;
     int i, j;
-//    ebins[0] = 0.5*emin;
     einterval[0] = emin;
     for (i=1; i<nbins-1; i++) {
-//        ebins[i] = exp(logemin+logde*(i-0.5));
         einterval[i] = exp(logemin)*(exp(logde*i)-exp(logde*(i-1)));
     }
-//    ebins[nbins-1] = exp(logemax+0.5*logde);
     einterval[nbins-1] = exp(logemin)*(exp(logde*nbins)-exp(logde*(nbins-1)));
 
     /* Reduce the spectrum to MPI process 0 */
-    MPI_Reduce(espectrum, espect_tot, nbins*nt_out, 
-            MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(espectrum, espect_tot, nbins*nt_out, MPI_DOUBLE, MPI_SUM, 0,
+            MPI_COMM_WORLD);
     if (mpi_rank == 0 ) {
         fp = fopen(fname, "a");
-//        for (j=0; j<nbins; j++) {
-//            fprintf(fp, "%20.14e ", ebins[j]);
-//        }
-//        fprintf(fp, "\n");
         for (i=0; i<nt_out; i++) {
             for (j=0; j<nbins; j++) {
                 espectrum[i][j] = espect_tot[i][j] / einterval[j];
-                //printf("%20.14e %20.14e\n", einterval[j], espectrum[i][j]);
                 fprintf(fp, "%20.14e ", espectrum[i][j]);
             }
             fprintf(fp, "\n");
@@ -256,29 +250,27 @@ void espectrum_collect(double espectrum[][nbins],
 /******************************************************************************
  * Save particle information, including positions, velocities, electromagnetic
  * fields at where the particle is for all cases including ADAPTIVE-STEP CASES.
+ *
  * Input:
+ *  mpi_rank: the rank of current MPI process.
  *  iptl: particle ID.
+ *  ntraj_shift: to decide whether it is the first frame.
+ *  ntraj: number trajectories for this output.
  *  ptl: structure array of particles.
  ******************************************************************************/
-void particle_info(int iptl, int ntraj_shift, int ntraj, struct particles *ptl)
+void save_particle_info(int mpi_rank, int iptl, int ntraj_shift, int ntraj,
+        struct particles *ptl)
 {
     FILE *fp;
     if (mpi_rank == 0) {
         if (ntraj_shift == 0) {
-            fp = fopen("ptl_info.bin", "w");
+            fp = fopen("data/ptl_info.bin", "w");
         } else {
-            fp = fopen("ptl_info.bin", "a");
+            fp = fopen("data/ptl_info.bin", "a");
         }
         fseek(fp, sizeof(struct particles)*(ntraj_shift+ntraj), SEEK_SET);
         fwrite(&ptl[iptl], sizeof(struct particles), 1, fp);
         fclose(fp);
-        //fp = fopen("ptl_info.bin", "rb");
-        //for (i=0; i<nptl; i++) {
-        //    fseek(fp, sizeof(struct particles)*(nptl*ntraj+i), SEEK_SET);
-        //    fread(&ptl1, sizeof(struct particles), 1, fp);
-        //    printf("%lf %lf %lf\n", ptl1.x, ptl1.y, ptl1.z);
-        //}
-        //fclose(fp);
     }
 }
 
@@ -287,25 +279,24 @@ void particle_info(int iptl, int ntraj_shift, int ntraj, struct particles *ptl)
  * be reused.
  *
  * Input:
+ *  mpi_rank: the rank of current MPI process.
  *  nptl: number of particle in one MPI process.
- *  ptl: particle structure array
- *  it: current time points. it = 0 indicates initial point.
- *  ntot: total number of particles/trajectory points for 
- *      trajectory diagnostics.
+ *  ptl: particle structure array.
+ *  ntot: total number of particles/trajectory points for trajectory diagnostics.
  *  naccumulate: accumulated particle # across MPI processes.
+ *  fname: filename for the output.
+ *  system_type: the type of the system.
  ******************************************************************************/
-void save_particles_fields(int nptl, struct particles *ptl, 
-        int ntot, int *naccumulate, char *fname)
+void save_particles_fields(int mpi_rank, int nptl, struct particles *ptl,
+        int ntot, int *naccumulate, char *fname, int system_type)
 {
     int i;
     int rank = 1;
-//    char fname[] = "particles_fields.h5";
     char gname[] = "/particles_fields";
     hid_t file_id, group_id;
     hid_t dset_ptl, dset_emf;
     hid_t filespace, memspace;
     hid_t plist_id;
-    //herr_t status;
     hsize_t dimsf[rank];
     hsize_t count[rank], offset[rank];
     hid_t memtype_ptl, filetype_ptl;
@@ -315,7 +306,7 @@ void save_particles_fields(int nptl, struct particles *ptl,
     struct emfields *emf_ptl; /* emf at particles' position. */
     emf_ptl = (struct emfields *)malloc(sizeof(emfields)*nptl);
     for (i=0; i<nptl; i++ ) {
-        get_emf(ptl[i].x, ptl[i].y, ptl[i].z, ptl[i].t, &emf_ptl[i]);
+        get_emf(ptl[i].x, ptl[i].y, ptl[i].z, ptl[i].t, system_type, &emf_ptl[i]);
     }
 
     MPI_Comm comm = MPI_COMM_WORLD;
@@ -396,66 +387,32 @@ void save_particles_fields(int nptl, struct particles *ptl,
 }
 
 /******************************************************************************
- * Create a compound data type containing the fields information for HDF5.
- *
- * Output:
- *  memtype: compound datatype for memory.
- *  filetype: compound datatype for the file.
- ******************************************************************************/
-void create_fields_ctype(hid_t *memtype, hid_t *filetype)
-{
-    //herr_t status;
-    /* Create the compound datatype in memory */
-    *memtype = H5Tcreate(H5T_COMPOUND, sizeof(emfields));
-    H5Tinsert(*memtype, "Bx", 
-            HOFFSET(emfields, Bx), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "By", 
-            HOFFSET(emfields, By), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "Bz", 
-            HOFFSET(emfields, Bz), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "Ex", 
-            HOFFSET(emfields, Ex), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "Ey", 
-            HOFFSET(emfields, Ey), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "Ez", 
-            HOFFSET(emfields, Ez), H5T_NATIVE_DOUBLE);
-    /*
-     * Create the compound datatype for the file.  Because the standard
-     * types we are using for the file may have different sizes than
-     * the corresponding native types, we must manually calculate the
-     * offset of each member.
-     */
-    *filetype = H5Tcreate(H5T_COMPOUND, 8*6);
-    H5Tinsert (*filetype, "Bx", 0, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "By", 8, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "Bz", 8*2, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "Ex", 8*3, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "Ey", 8*4, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "Ez", 8*5, H5T_IEEE_F64BE);
-}
-
-/******************************************************************************
  * Sort the particles according to their energies.
  *
  * Input:
+ *  mpi_rank: the rank of current MPI process.
  *  nptl: number of particles.
  *  ptl: structure array of particles.
+ *  pmass: particle mass in the unit of proton mass.
+ *  nptl_accumulate: global array for accumulated particle number.
+ *
  * Output:
  *  ptl: the sorted particles structure array.
  *  nsteps_ptl_tracking is updated to be consistent with the new ptl array..
  ******************************************************************************/
-void sort_particles_energy(int nptl, struct particles *ptl)
+void sort_particles_energy(int mpi_rank, int nptl, double pmass,
+        int *nptl_accumulate, struct particles *ptl, int *nsteps_ptl_tracking)
 {
     double beta, gama, rest_ene;
     int i;
 
-    rest_ene = rest_ene_proton*pmass;
+    rest_ene = REST_ENE_PROTON * pmass;
     double *ptl_ene = (double *)malloc(sizeof(double)*nptl);
     int *index_ptl = (int *)malloc(sizeof(int)*nptl);
     for (i=0; i<nptl; i++) {
         beta = sqrt(ptl[i].vx*ptl[i].vx+ptl[i].vy*ptl[i].vy+ptl[i].vz*ptl[i].vz);
-        gama = 1.0/sqrt(1.0-beta*beta);
-        ptl_ene[i] = (gama-1.0)*rest_ene;
+        gama = 1.0 / sqrt(1.0 - beta*beta);
+        ptl_ene[i] = (gama - 1.0) * rest_ene;
         index_ptl[i] = i;
     }
     quicksort(ptl_ene, index_ptl, nptl);
@@ -463,10 +420,10 @@ void sort_particles_energy(int nptl, struct particles *ptl)
         (struct particles *)malloc(sizeof(particles)*nptl);
 
     /* Reload particles from initial file. */
-    read_particles(nptl, ptl_tmp, "particles_fields_init.h5");
+    read_particles(mpi_rank, nptl, nptl_accumulate, ptl_tmp,
+            "data/particles_fields_init.h5");
 
     int *nsteps = (int *)malloc(sizeof(int)*nptl);
-//    memcpy(ptl_tmp, ptl, sizeof(particles)*nptl);
     memcpy(nsteps, nsteps_ptl_tracking, sizeof(int)*nptl);
     for (i=0; i<nptl; i++) {
         memcpy(&ptl[i], &ptl_tmp[index_ptl[i]], sizeof(particles));
@@ -486,38 +443,39 @@ void sort_particles_energy(int nptl, struct particles *ptl)
  *
  * Input:
  *  nptl: total # of particles in this MPI process.
- *  ntest_ptl: # of trajectory diagnostics test particles 
- *      for current MPI process.
+ *  nptl_traj: # of trajectory diagnostics test particles for current MPI process.
+ *  nsteps_ptl_tracking: the number of tracking steps for each particle.
  *  ptl: particle structure array.  
- * Return:
+ *
+ * Output:
  *  ntraj: the total trajectory points for current MPI process.
  *  ptl_traj: particle structure array for trajectory diagnostics.
  ******************************************************************************/
-void init_ptl_traj(int nptl, int ntest_ptl, int *ntraj, 
-        struct particles *ptl, struct particles *ptl_traj)
+void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
+        particles *ptl, int *ntraj, int *ntraj_accum, particles *ptl_traj)
 {
     int i, j, interval, ntraj_max;
-    interval = nptl / ntest_ptl;
+    interval = nptl / nptl_traj;
     j = nptl - 1; /* Starting from the highest energy */
     ntraj_max = 0;
-    for (i=0; i<ntest_ptl; i++) {
-        if (nsteps_ptl_tracking[j] > ntraj_max) {
-            ntraj_max = nsteps_ptl_tracking[j];
+    for (i = 0; i < nptl_traj; i++) {
+        if (nsteps_ptl_tracking[i] > ntraj_max) {
+            ntraj_max = nsteps_ptl_tracking[i];
         }
     }
     if (ntraj_max > MAX_TP) {
-        nsteps_output = nsteps_output*((double)ntraj_max)/MAX_TP;
+        nsteps_output = nsteps_output * ((double)ntraj_max)/MAX_TP;
     }
 
     *ntraj = 0;
     j = nptl - 1; /* Starting from the highest energy */
-    for (i=0; i<ntest_ptl; i++) {
+    for (i = 0; i < nptl_traj; i++) {
         (*ntraj) += nsteps_ptl_tracking[j] / nsteps_output;
         memcpy(&ptl_traj[i], &ptl[j], sizeof(particles));
         ntraj_accum[i] = nsteps_ptl_tracking[j] / nsteps_output;
         j -= interval;
     }
-    for (i=1; i<ntest_ptl; i++) {
+    for (i = 1; i < nptl_traj; i++) {
         ntraj_accum[i] += ntraj_accum[i-1];
     }
 }
@@ -526,27 +484,45 @@ void init_ptl_traj(int nptl, int ntest_ptl, int *ntraj,
  * Main function for particle trajectory diagnostics.
  *
  * Input:
+ *  mpi_rank: the rank of current MPI process.
  *  dt: time step for fixed time case.
  *  nptl: total # of particles in this MPI process.
+ *  pmass: particle mass in the unit of proton mass.
+ *  nptl_traj_tot: the total number of particles for trajectory diagnostics.
+ *  system_type: the type of the system. (wlcs, forcefree, MHD+test particle)
  *  ptl: particle structure array.
+ *  nptl_accumulate: the accumulative particles numbers along mpi_rank.
+ *  nsteps_ptl_tracking: the number of tracking steps for each particle.
  ******************************************************************************/
-void trajectory_diagnostics(int nptl, double dt, struct particles *ptl)
+void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
+        double pmass, int nptl_traj_tot, int system_type, struct particles *ptl,
+        int *nptl_accumulate, int *nsteps_ptl_tracking)
 {
-    int i, ntest_ptl, ntraj;
+    int i, nptl_traj, ntraj;
     int ntraj_offset_local;
-    sort_particles_energy(nptl, ptl);
-    particle_broadcast(ntest_ptl_tot, &ntest_ptl);
+    sort_particles_energy(mpi_rank, nptl, pmass, nptl_accumulate, ptl,
+            nsteps_ptl_tracking);
+    int *nptl_traj_accumulate = (int *)malloc(sizeof(int)*mpi_size);
+    for (int i = 0; i < mpi_size; i++) {
+        nptl_traj_accumulate[i] = 0;
+    }
+    particle_broadcast(mpi_rank, mpi_size, nptl_traj_tot, &nptl_traj,
+            nptl_traj_accumulate);
+    /* Particle trajectory information */
     struct particles *ptl_traj = 
-        (struct particles *)malloc(sizeof(particles)*ntest_ptl);
-    ntraj_accum = (int *)malloc(sizeof(int)*ntest_ptl);
-    init_ptl_traj(nptl, ntest_ptl, &ntraj, ptl, ptl_traj);
+        (struct particles *)malloc(sizeof(particles)*nptl_traj);
+    /* Number of trajectory points for all particles in current MPI process */
+    int *ntraj_accum = (int *)malloc(sizeof(int)*nptl_traj);
+    init_ptl_traj(nptl, nptl_traj, nsteps_ptl_tracking, ptl, &ntraj,
+            ntraj_accum, ptl_traj);
 
-    ntraj_accum_global = (int *)malloc(sizeof(int)*mpi_size);
+    /* The accumulation of particle trajectories in all MPI processes */
+    int *ntraj_accum_global = (int *)malloc(sizeof(int)*mpi_size);
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Gather(&ntraj, 1, MPI_INT, ntraj_accum_global, 
-            1, MPI_INT, 0, MPI_COMM_WORLD);
-    if (mpi_rank==0) {
-        for (i=1; i<mpi_size; i++) {
+    MPI_Gather(&ntraj, 1, MPI_INT, ntraj_accum_global, 1, MPI_INT,
+            0, MPI_COMM_WORLD);
+    if (mpi_rank == 0) {
+        for (i = 1; i < mpi_size; i++) {
             ntraj_accum_global[i] += ntraj_accum_global[i-1];
         }
     }
@@ -554,10 +530,10 @@ void trajectory_diagnostics(int nptl, double dt, struct particles *ptl)
     MPI_Bcast(ntraj_accum_global, mpi_size, MPI_INT, 0, MPI_COMM_WORLD);
 
     /* Time evolution of particles. */
-    ptl_time = (struct particles *)malloc(sizeof(particles)*ntraj);
+    particles *ptl_time = (struct particles *)malloc(sizeof(particles)*ntraj);
 
     /* Initial particles info. */
-    for (i=0; i<ntest_ptl; i++) {
+    for (i = 0; i < nptl_traj; i++) {
         if (i == 0) {
             ntraj_offset_local = 0;
         } else {
@@ -567,12 +543,100 @@ void trajectory_diagnostics(int nptl, double dt, struct particles *ptl)
                 sizeof(particles));
     }
 
-    particle_tracking_hybrid(ntest_ptl, dt, 1, ptl_traj);
-    save_particles_fields(ntraj, ptl_time, ntraj_accum_global[mpi_size-1], 
-            ntraj_accum_global, "particle_diagnostics.h5");
+    /* particle_tracking_hybrid(nptl_traj, dt, 1, ptl_traj); */
+    save_particles_fields(mpi_rank, ntraj, ptl_time,
+            ntraj_accum_global[mpi_size-1], ntraj_accum_global,
+            "data/particle_diagnostics.h5", system_type);
 
     free(ntraj_accum_global);
     free(ntraj_accum);
     free(ptl_traj);
+    free(nptl_traj_accumulate);
     free(ptl_time);
+}
+
+/******************************************************************************
+ * Read energy spectrum information.
+ *
+ * Input:
+ *  mpi_rank: the rank of current MPI process.
+ *  config_file_name: the configuration filename.
+ *
+ * Output:
+ *  nbins: number of energy bins.
+ *  nt_out: number of diagnostic time frames.
+ *
+ * Other spectrum information:
+ *  emin: minimum energy in MeV.
+ *  emax: maximum energy in MeV.
+ *  logemin: log10(emin).
+ *  logemax: log10(emax).
+ *  logde: the logarithmic scale of energy interval.
+ *****************************************************************************/
+void get_spectrum_info(int mpi_rank, char *config_file_name, int *nbins,
+        int *nt_out)
+{
+    FILE *fp;
+    int msg;
+    char *buff = (char *)malloc(sizeof(*buff)*LEN_MAX);
+    fp = fopen(config_file_name, "r");
+
+    while (fgets(buff, LEN_MAX, fp) != NULL) {
+        //puts(buff);
+        if (strstr(buff, "Energy spectrum info") != NULL) {
+            break;
+        }
+    }
+    msg = fscanf(fp, "nbins: %d\n", nbins);
+    if (msg != 1) {
+        printf("Failed to read nbins.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "emin: %lf\n", &emin);
+    if (msg != 1) {
+        printf("Failed to read emin.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "emax: %lf\n", &emax);
+    if (msg != 1) {
+        printf("Failed to read emax.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "Number of diagnostic time frames: %d\n", nt_out);
+    if (msg != 1) {
+        printf("Failed to read energy_type.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "If emin and emax in MeV: %d\n", &energy_type);
+    if (msg != 1) {
+        printf("Failed to read energy_type.\n");
+        exit(1);
+    }
+
+    free(buff);
+    fclose(fp);
+
+    logemin = log10(emin);
+    logemax = log10(emax);
+    logde = (logemax - logemin) / (*nbins - 2.0);
+
+    if (mpi_rank == 0) {
+        printf("============= Spectrum Info ==============\n");
+        printf("nbins = %d\n", *nbins);
+        printf("Number of diagnostic frames: %d\n", *nt_out);
+        if (energy_type == 1) {
+            /* In MeV */
+            printf("emin, emax = %f%s %f%s\n", emin, "MeV", emax, "MeV");
+            printf("Energy are calculated as MeV\n");
+        } else {
+            /* In gamma */
+            printf("emin, emax = %f %f\n", emin, emax);
+            printf("Energy are calculated as gamma (Lorentz factor)\n");
+        }
+        printf("=========================================\n");
+    }
 }

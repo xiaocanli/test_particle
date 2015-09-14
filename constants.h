@@ -25,3 +25,5 @@
 #ifndef REST_ENE_PROTON
 #define REST_ENE_PROTON 938.272046
 #endif
+
+typedef enum {false, true} bool;

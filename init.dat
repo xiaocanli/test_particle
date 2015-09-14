@@ -50,3 +50,11 @@ BC for particles: 1
 re-run the simulation: 0
 0 for new run. 1 for re-run.
 ------------------------------------------------------------------------------
+
+----------------------------- Energy spectrum info ---------------------------
+nbins: 102
+emin: 1.0E-5
+emax: 1.0E2
+Number of diagnostic time frames: 100
+If emin and emax in MeV: 1 (0 for Lorentz factor gamma)
+------------------------------------------------------------------------------

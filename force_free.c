@@ -26,6 +26,7 @@
 #include "force_free.h"
 #include "emfields.h"
 #include "domain.h"
+#include "velocity_field.h"
 
 struct grids simul_grid;
 struct domain simul_domain;
@@ -48,8 +49,8 @@ void getemf_ff(double x, double y, double z, double t, struct emfields *emf)
 {
     struct bfields bmf;
     struct efields elf;
-    /* getb_ff(x, y, z, t, &bmf); */
-    /* gete_ff(x, y, z, t, &bmf, &elf); */
+    getb_ff(x, y, z, t, &bmf);
+    gete_ff(x, y, z, t, &bmf, &elf);
     emf->Bx = bmf.Bx;
     emf->By = bmf.By;
     emf->Bz = bmf.Bz;
@@ -63,85 +64,20 @@ void getemf_ff(double x, double y, double z, double t, struct emfields *emf)
  *
  * Input:
  *  x, y, z, t: current spatial positions and time.
+ *  bmf: the magnetic field.
+ *
  * Output:
  *  elf: 3 components of electric field.
  ******************************************************************************/
-/* void gete_ff(double x, double y, double z, double t, */ 
-/*         struct bfields *bmf, struct efields *elf) */
-/* { */
-/*     int ix1, iy1, iz1, it1; */
-/*     int ix2, iy2, iz2, it2; */
-/*     double dx, dy, dz, dt; */
-/*     int i000, i100, i010, i001, i101, i011, i110, i111; */
-/*     double v1, v2, v3, v4, v5, v6, v7, v8; */
-/*     int dims[3], indices[3]; */
-/*     double vx, vy, vz; */
-/*     double vx1, vy1, vz1; */
-/*     grid_indices(x, y, z, t, &ix1, &iy1, &iz1, &it1, */
-/*             &ix2, &iy2, &iz2, &it2, &dx, &dy, &dz, &dt); */
-/*     /1* Trilinear  interpolation *1/ */
-/*     dims[0] = simul_grid.nz; */ 
-/*     dims[1] = simul_grid.ny; */ 
-/*     dims[2] = simul_grid.nx; */
-/*     indices[0] = iz1; indices[1] = iy1; indices[2] = ix1; */
-/*     index_transfer(dims, indices, 3, &i000); */
-/*     indices[0] = iz2; indices[1] = iy1; indices[2] = ix1; */
-/*     index_transfer(dims, indices, 3, &i001); */
-/*     indices[0] = iz1; indices[1] = iy2; indices[2] = ix1; */
-/*     index_transfer(dims, indices, 3, &i010); */
-/*     indices[0] = iz1; indices[1] = iy1; indices[2] = ix2; */
-/*     index_transfer(dims, indices, 3, &i100); */
-/*     indices[0] = iz1; indices[1] = iy2; indices[2] = ix2; */
-/*     index_transfer(dims, indices, 3, &i011); */
-/*     indices[0] = iz2; indices[1] = iy1; indices[2] = ix2; */
-/*     index_transfer(dims, indices, 3, &i101); */
-/*     indices[0] = iz2; indices[1] = iy2; indices[2] = ix1; */
-/*     index_transfer(dims, indices, 3, &i110); */
-/*     indices[0] = iz2; indices[1] = iy2; indices[2] = ix2; */
-/*     index_transfer(dims, indices, 3, &i111); */
-
-/*     v1 = (1.0-dx)*(1.0-dy)*(1.0-dz); */
-/*     v2 = dx*(1.0-dy)*(1.0-dz); */
-/*     v3 = (1.0-dx)*dy*(1.0-dz); */
-/*     v4 = (1.0-dx)*(1.0-dy)*dz; */
-/*     v5 = (1.0-dx)*dy*dz; */
-/*     v6 = dx*(1.0-dy)*dz; */
-/*     v7 = dx*dy*(1.0-dz); */
-/*     v8 = dx*dy*dz; */
-
-/*     vx = vfd_b[i000].vx*v1 + vfd_b[i001].vx*v2 + vfd_b[i010].vx*v3 + */
-/*          vfd_b[i100].vx*v4 + vfd_b[i011].vx*v5 + vfd_b[i101].vx*v6 + */
-/*          vfd_b[i110].vx*v7 + vfd_b[i111].vx*v8; */
-/*     vy = vfd_b[i000].vy*v1 + vfd_b[i001].vy*v2 + vfd_b[i010].vy*v3 + */
-/*          vfd_b[i100].vy*v4 + vfd_b[i011].vy*v5 + vfd_b[i101].vy*v6 + */
-/*          vfd_b[i110].vy*v7 + vfd_b[i111].vy*v8; */
-/*     vz = vfd_b[i000].vz*v1 + vfd_b[i001].vz*v2 + vfd_b[i010].vz*v3 + */
-/*          vfd_b[i100].vz*v4 + vfd_b[i011].vz*v5 + vfd_b[i101].vz*v6 + */
-/*          vfd_b[i110].vz*v7 + vfd_b[i111].vz*v8; */
-
-/*     if (imultiple == 1) { */
-/*         /1* Interpolate along t, but can do spatial interpolation first, */
-/*          * since it is linear interpolation. */
-/*          *1/ */
-/*         vx1 = vfd_a[i000].vx*v1 + vfd_a[i001].vx*v2 + vfd_a[i010].vx*v3 + */
-/*              vfd_a[i100].vx*v4 + vfd_a[i011].vx*v5 + vfd_a[i101].vx*v6 + */
-/*              vfd_a[i110].vx*v7 + vfd_a[i111].vx*v8; */
-/*         vy1 = vfd_a[i000].vy*v1 + vfd_a[i001].vy*v2 + vfd_a[i010].vy*v3 + */
-/*              vfd_a[i100].vy*v4 + vfd_a[i011].vy*v5 + vfd_a[i101].vy*v6 + */
-/*              vfd_a[i110].vy*v7 + vfd_a[i111].vy*v8; */
-/*         vz1 = vfd_a[i000].vz*v1 + vfd_a[i001].vz*v2 + vfd_a[i010].vz*v3 + */
-/*              vfd_a[i100].vz*v4 + vfd_a[i011].vz*v5 + vfd_a[i101].vz*v6 + */
-/*              vfd_a[i110].vz*v7 + vfd_a[i111].vz*v8; */
-
-/*         vx = (1.0-dt)*vx + dt*vx1; */
-/*         vy = (1.0-dt)*vy + dt*vy1; */
-/*         vz = (1.0-dt)*vz + dt*vz1; */
-/*     } */
-
-/*     elf->Ex = bmf->By*vz - bmf->Bz*vy; */
-/*     elf->Ey = bmf->Bz*vx - bmf->Bx*vz; */
-/*     elf->Ez = bmf->Bx*vy - bmf->By*vx; */
-/* } */
+void gete_ff(double x, double y, double z, double t, struct bfields *bmf,
+        struct efields *elf)
+{
+    double vx, vy, vz;
+    get_double_velocity_at_point(x, y, z, t, &vx, &vy, &vz);
+    elf->Ex = bmf->By*vz - bmf->Bz*vy;
+    elf->Ey = bmf->Bz*vx - bmf->Bx*vz;
+    elf->Ez = bmf->Bx*vy - bmf->By*vx;
+}
 
 /******************************************************************************
  * Read the normalized B and the inverse of the length scale of the magnetic

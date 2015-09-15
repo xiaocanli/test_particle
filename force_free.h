@@ -40,21 +40,11 @@ typedef struct vfields {
 } vfields;
 #endif
 
-/* void getb_ff(double x, double y, double z, double t, struct bfields *bmf); */
+void getb_ff(double x, double y, double z, double t, struct bfields *bmf);
 
-/* void gete_ff(double x, double y, double z, double t, */ 
-/*         struct bfields *bmf, struct efields *elf); */
+void gete_ff(double x, double y, double z, double t, struct bfields *bmf,
+        struct efields *elf);
 
-/* void grid_indices(double x, double y, double z, double t, int *ix1, int *iy1, */ 
-/*         int *iz1, int *it1, int *ix2, int *iy2, int *iz2, int *it2, */
-/*         double *dx, double *dy, double *dz, double *dt); */
-
-/* void index_transfer(int *dims, int *indices, int ndim, int *index); */
-
-/* void getemf_ff(double x, double y, double z, double t, struct emfields *emf); */
-
-/* void dim_vfield(double *v0); */
-
-/* void read_vfields(int it, double v0, struct vfields *vfd); */
+void getemf_ff(double x, double y, double z, double t, struct emfields *emf);
 
 void get_param_ff(int mpi_rank, char *config_file_name);

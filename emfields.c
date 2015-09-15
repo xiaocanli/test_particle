@@ -8,24 +8,11 @@
 #include "hdf5.h"
 #include "emfields.h"
 #include "wlcs.h"
+#include "force_free.h"
+#include "velocity_field.h"
+#include "magnetic_field.h"
 
-/******************************************************************************
- * Calculate electromagnetic fields for test case.
- * 
- * Input:
- * x, y, z, t: spatial positions and time.
- * Output:
- * emf: electromagnetic fields at (x,y,z,t) 
- ******************************************************************************/
-void getemf_test(double x, double y, double z, double t, struct emfields *emf)
-{
-    emf->Bx = 0.0;
-    emf->By = 0.0;
-    emf->Bz = 1.0E0;
-    emf->Ex = 0.0;
-    emf->Ey = 0.0;
-    emf->Ez = 0.0;
-}
+int system_type;
 
 /******************************************************************************
  * Calculate or interpolate to get electromagnetic fields.
@@ -40,18 +27,78 @@ void getemf_test(double x, double y, double z, double t, struct emfields *emf)
  * Output:
  *  emf: electromagnetic fields at (x,y,z,t) 
  ******************************************************************************/
-void get_emf(double x, double y, double z, double t, int system_type,
+void get_emf(double x, double y, double z, double t, struct emfields *emf)
+{
+    switch (system_type) {
+        case 0:
+            getemf_test(x, y, z, t, emf);
+            break;
+        case 1:
+            getemf_wlcs(x, y, z, t, emf);
+            break;
+        case 2:
+            getemf_ff(x, y, z, t, emf);
+            break;
+        case 3:
+            getemf_mhd_test_particle(x, y, z, t, emf);
+            break;
+        default:
+            printf("ERROR: wrong system type.\n");
+            exit(1);
+    }
+}
+/******************************************************************************
+ * Get electric and magnetic fields for MHD + test particle system.
+ *
+ * Input:
+ * x, y, z, t: spatial positions and time.
+ *
+ * Output:
+ * emf: electromagnetic fields at (x, y, z, t) 
+ ******************************************************************************/
+void getemf_mhd_test_particle(double x, double y, double z, double t,
         struct emfields *emf)
 {
-    if (system_type == 0) {
-        getemf_test(x, y, z, t, emf);
-    }
-    else if (system_type == 1) {
-        getemf_wlcs(x, y, z, t, emf);
-    }
-    /* else if (system_type == 2){ */
-    /*     getemf_ff(x, y, z, t, emf); */
-    /* } */
+    float vx, vy, vz;
+    float Bx, By, Bz;
+    get_float_velocity_at_point(x, y, z, t, &vx, &vy, &vz);
+    get_float_velocity_at_point(x, y, z, t, &Bx, &By, &Bz);
+    emf->Bx = Bx;
+    emf->By = By;
+    emf->Bz = Bz;
+    emf->Ex = emf->By * vz - emf->Bz * vy;
+    emf->Ey = emf->Bz * vx - emf->Bx * vz;
+    emf->Ez = emf->Bx * vy - emf->By * vx;
+}
+
+/******************************************************************************
+ * Set shared variables for current file.
+ *
+ * Input:
+ *  stype: system type.
+ ******************************************************************************/
+void set_variables_emfields(int stype)
+{
+    system_type = stype;
+}
+
+/******************************************************************************
+ * Calculate electromagnetic fields for test case.
+ * 
+ * Input:
+ * x, y, z, t: spatial positions and time.
+ *
+ * Output:
+ * emf: electromagnetic fields at (x, y, z, t) 
+ ******************************************************************************/
+void getemf_test(double x, double y, double z, double t, struct emfields *emf)
+{
+    emf->Bx = 0.0;
+    emf->By = 0.0;
+    emf->Bz = 1.0E0;
+    emf->Ex = 0.0;
+    emf->Ey = 0.0;
+    emf->Ez = 0.0;
 }
 
 /******************************************************************************

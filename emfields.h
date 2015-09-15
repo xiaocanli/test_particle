@@ -25,6 +25,9 @@ typedef struct efields {
 } efields;
 #endif
 
-void get_emf(double x, double y, double z, double t, int system_type,
-        struct emfields *emf);
+void get_emf(double x, double y, double z, double t, struct emfields *emf);
 void create_fields_ctype(hid_t *memtype, hid_t *filetype);
+void getemf_test(double x, double y, double z, double t, struct emfields *emf);
+void set_variables_emfields(int stype);
+void getemf_mhd_test_particle(double x, double y, double z, double t,
+        struct emfields *emf);

@@ -28,6 +28,7 @@
 #include "wlcs.h"
 #include "velocity_field.h"
 #include "magnetic_field.h"
+#include "emfields.h"
 /* #include "cbmpi.h" */
 /* #include "tracking.h" */
 /* #include "force_free.h" */

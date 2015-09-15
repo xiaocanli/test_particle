@@ -48,3 +48,5 @@ void gete_ff(double x, double y, double z, double t, struct bfields *bmf,
 void getemf_ff(double x, double y, double z, double t, struct emfields *emf);
 
 void get_param_ff(int mpi_rank, char *config_file_name);
+
+void set_variables_ff(grids *sgrid, domain *sdomain);

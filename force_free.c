@@ -32,8 +32,14 @@ struct grids simul_grid;
 struct domain simul_domain;
 struct param_ff param;
 
-void ReadDataSerialHDF5(int rank, hsize_t *count, hsize_t *offset, char *fname,
-        char *gname, char *dset_name, double *data);
+/******************************************************************************
+ * Set shared variables for force_free field system.
+ ******************************************************************************/
+void set_variables_ff(grids *sgrid, domain *sdomain)
+{
+    memcpy(&simul_grid, sgrid, sizeof(grids));
+    memcpy(&simul_domain, sdomain, sizeof(domain));
+}
 
 /******************************************************************************
  * Get the electromagnetic fields for a force-free field case. The magnetic

@@ -23,6 +23,7 @@
 #include <omp.h>
 #include <mpi.h>
 #include "constants.h"
+#include "domain.h"
 #include "tracking.h"
 #include "diagnostics.h"
 #include "StepperBS.h"
@@ -64,40 +65,42 @@ void init_spectrum(int nbins, int nt_out, double espectrum [][nbins]);
  *  nptl: particle number for this process.
  *  dt: time step for particle tracking.
  *  traj_diagnostics: flag for whether to do particle trajectory diagnostics.
+ *
  * Output:
- *  ptl: particles struct array will be updated.
+ *  ptl: particles structure array will be updated.
  *  espectrum, espect_escape: spectra summed over all threads.
  *  espect_private, espect_escape_private: spectra in each thread.
  *  espect_tot: spectra summed over all MPI process.
  ******************************************************************************/
-/* void particle_tracking_fixed(int nptl, double dt, */ 
-/*         int traj_diagnose, struct particles *ptl, */ 
-/*         double espectrum[][nbins], double espect_tot[][nbins], */ 
-/*         double espect_escape[][nbins], double espect_private[][nbins*nt_out], */ 
-/*         double espect_escape_private[][nbins*nt_out]) */
-/* { */
-/*     int estep, einterval_t, ptl_id; */
-/*     estep = simul_domain.tmax /dt; */
-/*     einterval_t = estep/nt_out; */
-/*     printf("Energy output time interval %d\n", einterval_t); */
+void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
+        int traj_diagnose, domain simul_domain, int *nsteps_ptl_tracking,
+        int system_type,
+        particles *ptl, double espectrum[][nbins], double espect_tot[][nbins],
+        double espect_escape[][nbins], double espect_private[][nbins*nt_out],
+        double espect_escape_private[][nbins*nt_out])
+{
+    int estep, einterval_t, ptl_id;
+    int *ntraj_diagnostics_points_array;
+    estep = simul_domain.tmax /dt;
+    einterval_t = estep/nt_out;
+    printf("Energy output time interval %d\n", einterval_t);
 
-/*     /1* Number of steps each particle is tracked. *1/ */
-/*     for (ptl_id=0; ptl_id<nptl; ptl_id++) { */
-/*         nsteps_ptl_tracking[ptl_id] = 1; */
-/*     } */
+    /* Number of steps each particle is tracked. */
+    for (ptl_id=0; ptl_id<nptl; ptl_id++) {
+        nsteps_ptl_tracking[ptl_id] = 1;
+    }
 
-/*     if (traj_diagnose == 1) { */
-/*         /1* Temporary array for trajectory diagnostics. */ 
-/*          * It keeps tracking how many trajectory diagnostics points */
-/*          * for each test particle. Doing it as an array because some */
-/*          * particles are going to get out the simulation box. *1/ */
-/*         ntraj_diagnostics_points_array = */
-/*             (int *)malloc(sizeof(int)*nptl); */
-/*         for (ptl_id=0; ptl_id<nptl; ptl_id++) { */
-/*             /1* At least one point. *1/ */
-/*             ntraj_diagnostics_points_array[ptl_id] = 1; */
-/*         } */
-/*     } */
+    if (traj_diagnose == 1) {
+        /* Temporary array for trajectory diagnostics. 
+         * It keeps tracking how many trajectory diagnostics points
+         * for each test particle. Doing it as an array because some
+         * particles are going to get out the simulation box. */
+        ntraj_diagnostics_points_array = (int *)malloc(sizeof(int)*nptl);
+        for (ptl_id=0; ptl_id<nptl; ptl_id++) {
+            /* At least one point. */
+            ntraj_diagnostics_points_array[ptl_id] = 1;
+        }
+    }
 
 /*     #pragma omp parallel */
 /*     { */
@@ -111,26 +114,25 @@ void init_spectrum(int nbins, int nt_out, double espectrum [][nbins]);
 /*             espect_private[tid][j] = 0.0; */
 /*             espect_escape_private[tid][j] = 0.0; */
 /*         } */
-/* //        printf("tid %d\n", tid); */
 /*         if (isystem == 2 && imultiple == 1) { */
 /*             /1* Force-free system and interpolation between multiple */
 /*              * velocity field. *1/ */
-/*             ParticleTrackingOmpFF(nptl, dt, tid, estep, einterval_t, */
-/*                     traj_diagnose, ptl, nsteps_ptl_tracking, */
-/*                     espect_private, espect_escape_private); */
+/*             /1* ParticleTrackingOmpFF(nptl, dt, tid, estep, einterval_t, *1/ */
+/*             /1*         traj_diagnose, ptl, nsteps_ptl_tracking, *1/ */
+/*             /1*         espect_private, espect_escape_private); *1/ */
 /*         } else { */
-/*             MultiStepsParticleTrackingOmp(nptl, dt, tid, 1, estep, */
-/*                 einterval_t, traj_diagnose, ptl, nsteps_ptl_tracking, */
-/*                 espect_private, espect_escape_private); */
+/*             /1* MultiStepsParticleTrackingOmp(nptl, dt, tid, 1, estep, *1/ */
+/*             /1*     einterval_t, traj_diagnose, ptl, nsteps_ptl_tracking, *1/ */
+/*             /1*     espect_private, espect_escape_private); *1/ */
 /*         } */
-/*         GatherParticleSpectra(num_threads, espectrum, */ 
-/*                 espect_private, espect_escape, espect_escape_private); */
+/*         /1* GatherParticleSpectra(num_threads, espectrum, *1/ */ 
+/*         /1*         espect_private, espect_escape, espect_escape_private); *1/ */
 /*     } */
 
-/*     if (traj_diagnose == 1) { */
-/*         free(ntraj_diagnostics_points_array); */
-/*     } */
-/* } */
+    if (traj_diagnose == 1) {
+        free(ntraj_diagnostics_points_array);
+    }
+}
 
 /******************************************************************************
  * Particle tracking procedure parallelized with OpenMP for force-free field
@@ -501,6 +503,7 @@ void init_spectrum(int nbins, int nt_out, double espectrum [][nbins])
  * The time evolution of particle energy spectra are tracked.
  *
  * Input:
+ *  mpi_rank: the rank of current MPI process.
  *  nptl: particle number for this process.
  *  dt: time step for particle tracking.
  *  nbins: number of energy bins.
@@ -508,14 +511,18 @@ void init_spectrum(int nbins, int nt_out, double espectrum [][nbins])
  *  bc_flag: boundary condition flag. 0 for periodic; 1 for open.
  *  tracking_method: 0 for fixed step. 1 for adaptive step.
  *  traj_diagnose: flag for whether to do trajectory diagnostics. 
+ *  simul_domain: the simulation domain information.
  *
  * Output:
  *  espectrum: energy spectrum of particles.
  *  ptl: particles struct array will be updated.
+ *
+ * Input & output:
+ *  nsteps_ptl_tracking: total number of tracking steps for each particle.
  ******************************************************************************/
 void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
         int nt_out, int bc_flag, int tracking_method, int traj_diagnose,
-        struct particles *ptl)
+        domain simul_domain, int *nsteps_ptl_tracking, struct particles *ptl)
 {
     double espectrum[nt_out][nbins], espect_tot[nt_out][nbins];
     /* Energy spectrum for escaping particles. */

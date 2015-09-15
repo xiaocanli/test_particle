@@ -7,6 +7,7 @@
 #include "domain.h"
 #include "constants.h"
 #include "wlcs.h"
+#include "force_free.h"
 
 void get_spatial_domain(int mpi_rank, FILE *fp, domain *simul_domain);
 int get_system_type(int mpi_rank, FILE *fp);
@@ -261,18 +262,19 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name)
             /* Wire-loop current system. */
             read_wlcs(mpi_rank, config_file_name);
             break;
-        /* case 2: */
-        /*     double v0; */
-        /*     int tot_grid; */
-        /*     dim_vfield(&v0); */
-        /*     get_param_ff(); */
-        /*     tot_grid = simul_grid.nx*simul_grid.ny*simul_grid.nz; */
-        /*     vfd_b = (struct vfields*)malloc(sizeof(struct vfields)*tot_grid); */
-        /*     read_vfields(0, v0, vfd_b); */
-        /*     if (multi_tframe == 1) { */
-        /*         vfd_a = (struct vfields*)malloc(sizeof(struct vfields)*tot_grid); */
-        /*         read_vfields(1, v0, vfd_a); */
-        /*     } */
+        case 2:
+            /* double v0; */
+            /* int tot_grid; */
+            /* dim_vfield(&v0); */
+            get_param_ff(mpi_rank, config_file_name);
+            /* tot_grid = simul_grid.nx*simul_grid.ny*simul_grid.nz; */
+            /* vfd_b = (struct vfields*)malloc(sizeof(struct vfields)*tot_grid); */
+            /* read_vfields(0, v0, vfd_b); */
+            /* if (multi_tframe == 1) { */
+            /*     vfd_a = (struct vfields*)malloc(sizeof(struct vfields)*tot_grid); */
+            /*     read_vfields(1, v0, vfd_a); */
+            /* } */
+            break;
         default:
             if (mpi_rank == 0) {
                 printf("Error system option: [%d]\n", system_type);
@@ -280,4 +282,97 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name)
             return -1;
     }
     return 0;
+}
+
+/******************************************************************************
+ * Read the dimensions of the input velocity and/or magnetic field.
+ *
+ * Input:
+ *  mpi_rank: the rank of current MPI process.
+ *  config_file_name: the configuration filename.
+ *  simul_domain: the simulation domain.
+ *
+ * Output:
+ *  simul_grid: structure contains grid dimensions and grid sizes.
+ *  v0_field: the normalization of velocity field in the unit of light speed.
+ *  B0_field: the normalization of magnetic field in the unit of Gauss.
+ *  multi_tframe: flag for whether to use multiple time slices of the fields.
+ ******************************************************************************/
+void get_fields_dims(int mpi_rank, char *config_file_name, domain simul_domain,
+        grids *simul_grid, double *v0_field, double *B0_field, int *multi_tframe)
+{
+    FILE *fp;
+    char buff[LEN_MAX];
+    int msg;
+    fp = fopen(config_file_name, "r");
+    while (fgets(buff, LEN_MAX, fp) != NULL){
+        if (strstr(buff, "Fields arrays")) {
+            break;
+        }
+    };
+    msg = fscanf(fp, "x dimension(nx): %d\n", &simul_grid->nx);
+    if (msg != 1) {
+        printf("Failed to read nx.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "y dimension(ny): %d\n", &simul_grid->ny);
+    if (msg != 1) {
+        printf("Failed to read ny.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "z dimension(nz): %d\n", &simul_grid->nz);
+    if (msg != 1) {
+        printf("Failed to read nz.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "time slices(nt): %d\n", &simul_grid->nt);
+    if (msg != 1) {
+        printf("Failed to read nt.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "Velocity field normalization (in light speed): %lf\n",
+            v0_field);
+    if (msg != 1) {
+        printf("Failed to read normalization for velocity.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "Magnetic field normalization (in Gauss): %lf\n", B0_field);
+    if (msg != 1) {
+        printf("Failed to read normalization for magnetic field.\n");
+        exit(1);
+    }
+
+    msg = fscanf(fp, "If using multiple time slices: %d\n", multi_tframe);
+    if (msg != 1) {
+        printf("Failed to decide whether multiple time slices are used.\n");
+        exit(1);
+    }
+
+    fclose(fp);
+
+    /* Grid sizes */
+    simul_grid->dx = (simul_domain.xmax-simul_domain.xmin) / (simul_grid->nx-1.0);
+    simul_grid->dy = (simul_domain.ymax-simul_domain.ymin) / (simul_grid->ny-1.0);
+    simul_grid->dz = (simul_domain.zmax-simul_domain.zmin) / (simul_grid->nz-1.0);
+    simul_grid->dt = (simul_domain.tmax-simul_domain.tmin) / (simul_grid->nt-1.0);
+
+    if (mpi_rank == 0) {
+        printf("=================== Fields Information ====================\n");
+        printf("Dimensions of velocity fields (nx, ny, nz, nt): "
+                "(%d, %d, %d, %d)\n", simul_grid->nx, simul_grid->ny,
+                simul_grid->nz, simul_grid->nt );
+        printf("The normalization for velocity filed (in c): %lf\n", *v0_field);
+        printf("The normalization for magnetic filed (in c): %lf\n", *B0_field);
+        if (*multi_tframe == 1) {
+            printf("Multiple time slices of the fields are used.\n");
+        } else {
+            printf("Single time slice of the fields is used.\n");
+        }
+        printf("===========================================================\n");
+    }
 }

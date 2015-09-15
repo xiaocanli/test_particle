@@ -17,7 +17,7 @@ zmax = 1.0
 
 --------------------------------- System info --------------------------------
 0: test, 1: wlcs, 2: forcefree 3: MHD+test particle
-Flag for the system to use: 2
+Flag for the system to use: 3
 Number of WLCSs: 8
 ------------------------------------------------------------------------------
 

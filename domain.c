@@ -279,6 +279,14 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
             initialize_vfield();
             read_vfields_h5(0, "data/u4d.h5", "/u4d", sizeof(double));
             break;
+        case 3:
+            get_fields_dims(mpi_rank, config_file_name, simul_domain,
+                    &simul_grid, &v0_field, &B0_field, &multi_tframe);
+            set_variables_velocity(&simul_grid, &simul_domain, v0_field,
+                    multi_tframe, sizeof(double));
+            initialize_vfield();
+            read_vfields_binary("/scratch/deng/for_xiaocan/", 16, sizeof(double));
+            break;
         default:
             if (mpi_rank == 0) {
                 printf("Error system option: [%d]\n", system_type);

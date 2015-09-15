@@ -59,82 +59,6 @@ void getemf_ff(double x, double y, double z, double t, struct emfields *emf)
 }
 
 /******************************************************************************
- * Get the grid indices for the actual positions x, y, z, t. It will return
- * two sets of indices which contains the point (x, y, z, t) and the
- * displacements from those grid indices.
- *
- * Input:
- *  x, y, z, t: spatial positions and time.
- * Output:
- *  ix1, iy1, iz1, it1: left grid indices.
- *  ix2, iy2, iz2, it2: right grid indices.
- *  dx, dy, dz, dt: displacements from the left grid indices.
- ******************************************************************************/
-/* void grid_indices(double x, double y, double z, double t, int *ix1, int *iy1, */ 
-/*         int *iz1, int *it1, int *ix2, int *iy2, int *iz2, int *it2, */
-/*         double *dx, double *dy, double *dz, double *dt) */
-/* { */
-/*     int nx, ny, nz; */
-/*     nx = simul_grid.nx; */
-/*     ny = simul_grid.ny; */
-/*     nz = simul_grid.nz; */
-/*     //nt = simul_grid.nt; */
-/*     /1* left and right grid indices *1/ */
-/*     *ix1 = floor(x/simul_grid.dx); */
-/*     *iy1 = floor(y/simul_grid.dy); */
-/*     *iz1 = floor(z/simul_grid.dz); */
-/*     *ix2 = *ix1 + 1; */
-/*     *iy2 = *iy1 + 1; */
-/*     *iz2 = *iz1 + 1; */
-/*     *dx = x/simul_grid.dx - (*ix1); */
-/*     *dy = y/simul_grid.dy - (*iy1); */
-/*     *dz = z/simul_grid.dz - (*iz1); */
-   
-/*     /1* boundary conditions *1/ */
-/*     if (x > simul_domain.xmax) { */
-/*         *ix1 = nx - 1; */
-/*         *ix2 = 0; */
-/*         *dx = x/simul_grid.dx - (nx-1); */
-/*     } */
-/*     if (y > simul_domain.ymax) { */
-/*         *iy1 = ny - 1; */
-/*         *iy2 = 0; */
-/*         *dy = y/simul_grid.dy - (ny-1); */
-/*     } */
-/*     if (z > simul_domain.zmax) { */
-/*         *iz1 = nz - 1; */
-/*         *iz2 = 0; */
-/*         *dz = z/simul_grid.dz - (nz-1); */
-/*     } */
-/*     if (x < simul_domain.xmin) { */
-/*         *ix1 = nx - 1; */
-/*         *ix2 = 0; */
-/*         *dx = x/simul_grid.dx + 1.0; */
-/*     } */
-/*     if (y < simul_domain.ymin) { */
-/*         *iy1 = ny - 1; */
-/*         *iy2 = 0; */
-/*         *dy = y/simul_grid.dy + 1.0; */
-/*     } */
-/*     if (z < simul_domain.zmin) { */
-/*         *iz1 = nz - 1; */
-/*         *iz2 = 0; */
-/*         *dz = z/simul_grid.dz + 1.0; */
-/*     } */
-
-/*     if (imultiple == 0) { */
-/*         *it1 = 0; */
-/*         *it2 = 0; */
-/*         *dt = 0.0; */
-/*     } */
-/*     else if (imultiple == 1) { */
-/*         *it1 = floor(t/simul_grid.dt); */
-/*         *it2 = *it1 + 1; */
-/*         *dt = t/simul_grid.dt - (*it1); */
-/*     } */
-/* } */
-
-/******************************************************************************
  * Calculate the inductive electric fields from turbulent velocity fields.
  *
  * Input:
@@ -217,21 +141,6 @@ void getemf_ff(double x, double y, double z, double t, struct emfields *emf)
 /*     elf->Ex = bmf->By*vz - bmf->Bz*vy; */
 /*     elf->Ey = bmf->Bz*vx - bmf->Bx*vz; */
 /*     elf->Ez = bmf->Bx*vy - bmf->By*vx; */
-/* } */
-
-/******************************************************************************
- * Transfer the indices of multidimensional array to the index on a one
- * dimensional array.
- ******************************************************************************/
-/* void index_transfer(int *dims, int *indices, int ndim, int *index) */
-/* { */
-/*     int i, shift; */
-/*     *index = indices[ndim-1]; */
-/*     shift = dims[ndim-1]; */
-/*     for (i=ndim-2; i>=0; i--) { */
-/*         *index += shift*indices[i]; */
-/*         shift *= dims[i]; */
-/*     } */
 /* } */
 
 /******************************************************************************

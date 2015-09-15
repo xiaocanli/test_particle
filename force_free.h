@@ -16,6 +16,7 @@
 * along with CHAOTICB.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 #include "emfields.h"
+#include "domain.h"
 
 #ifndef ABC_FIELD_H
 #define ABC_FIELD_H

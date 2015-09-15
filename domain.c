@@ -10,6 +10,7 @@
 #include "velocity_field.h"
 #include "force_free.h"
 #include "magnetic_field.h"
+#include "emfields.h"
 
 void get_spatial_domain(int mpi_rank, FILE *fp, domain *simul_domain);
 int get_system_type(int mpi_rank, FILE *fp);
@@ -261,6 +262,7 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
     int multi_tframe;
     grids simul_grid;
     double v0_field, B0_field;
+    set_variables_emfields(system_type);
     switch (system_type) {
         case 0:
             if (mpi_rank == 0) {

@@ -15,18 +15,46 @@
 * You should have received a copy of the GNU General Public License
 * along with CHAOTICB.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
+#include "emfields.h"
+
+#ifndef ABC_FIELD_H
+#define ABC_FIELD_H
 #define ffA 1.0
 #define ffB sqrt(2.0/3.0)
 #define ffC sqrt(1.0/3.0)
+#endif
 
-void getb_ff(double x, double y, double z, double t, struct bfields *bmf);
-void gete_ff(double x, double y, double z, double t, 
-        struct bfields *bmf, struct efields *elf);
-void grid_indices(double x, double y, double z, double t, int *ix1, int *iy1, 
-        int *iz1, int *it1, int *ix2, int *iy2, int *iz2, int *it2,
-        double *dx, double *dy, double *dz, double *dt);
-void index_transfer(int *dims, int *indices, int ndim, int *index);
-void getemf_ff(double x, double y, double z, double t, struct emfields *emf);
-void dim_vfield(double *v0);
-void read_vfields(int it, double v0, struct vfields *vfd);
-void get_param_ff(void);
+/* Parameters for force-free field */
+#ifndef PARAM_FF_H
+#define PARAM_FF_H
+typedef struct param_ff {
+    double B0, lambda0;
+} param_ff;
+#endif
+
+/* Velocity fields */
+#ifndef VFIELDS_H
+#define VFIELDS_H
+typedef struct vfields {
+	double vx, vy, vz;
+} vfields;
+#endif
+
+/* void getb_ff(double x, double y, double z, double t, struct bfields *bmf); */
+
+/* void gete_ff(double x, double y, double z, double t, */ 
+/*         struct bfields *bmf, struct efields *elf); */
+
+/* void grid_indices(double x, double y, double z, double t, int *ix1, int *iy1, */ 
+/*         int *iz1, int *it1, int *ix2, int *iy2, int *iz2, int *it2, */
+/*         double *dx, double *dy, double *dz, double *dt); */
+
+/* void index_transfer(int *dims, int *indices, int ndim, int *index); */
+
+/* void getemf_ff(double x, double y, double z, double t, struct emfields *emf); */
+
+/* void dim_vfield(double *v0); */
+
+/* void read_vfields(int it, double v0, struct vfields *vfd); */
+
+void get_param_ff(int mpi_rank, char *config_file_name);

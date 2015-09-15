@@ -57,29 +57,6 @@ void get_emf(double x, double y, double z, double t, int system_type,
 }
 
 /******************************************************************************
- * Release allocated memory.
- * 
- * Released memory:
- *  ptl: particle structure array.
- *  config: configuration for wlcs system when isystem = 1.
- ******************************************************************************/
-/* void release_memory(struct particles *ptl) */
-/* { */
-/*     free(ptl); */
-/*     if (isystem == 1) { */
-/*         free(config); */
-/*     } */
-/*     else if (isystem == 2) { */
-/*         free(vfd_b); */
-/*         if (imultiple == 1) { */
-/*             free(vfd_a); */
-/*         } */
-/*     } */
-/*     free(nptl_accumulate); */
-/*     free(nsteps_ptl_tracking); */
-/* } */
-
-/******************************************************************************
  * Create a compound data type containing the fields information for HDF5.
  *
  * Output:

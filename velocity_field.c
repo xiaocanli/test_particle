@@ -26,6 +26,7 @@
 #include "domain.h"
 #include "data_io.h"
 #include "velocity_field.h"
+#include "interpolation.h"
 
 struct grids simul_grid;
 struct domain simul_domain;
@@ -541,5 +542,81 @@ void read_vfields_binary(char *filepath, int ct, int data_type)
     } else {
         printf("ERROR: wrong data type\n");
         exit(1);
+    }
+}
+
+/******************************************************************************
+ * Get velocity field at a point. The velocities have double data type.
+ *
+ * Input:
+ *  x, y, z: the spatial positions.
+ *  t: current time.
+ ******************************************************************************/
+void get_double_velocity_at_point(double x, double y, double z, double t,
+        double *vx, double *vy, double *vz)
+{
+    long int corners[8];
+    double weights[8];
+    double dt, vx1, vx2, vy1, vy2, vz1, vz2;
+    *vx = 0.0; *vy = 0.0; *vz = 0.0;
+    vx1 = 0.0; vy1 = 0.0; vz1 = 0.0;
+    vx2 = 0.0; vy2 = 0.0; vz2 = 0.0;
+    get_trilinar_parameters(x, y, z, t, corners, weights, &dt);
+    if (multi_tframe == 0) {
+        for (int i = 0; i < 8; i++) {
+            *vx += vc_double[corners[i]].vx * weights[i];
+            *vy += vc_double[corners[i]].vy * weights[i];
+            *vz += vc_double[corners[i]].vz * weights[i];
+        }
+    } else {
+        for (int i = 0; i < 8; i++) {
+            vx1 += va_double[corners[i]].vx * weights[i];
+            vy1 += va_double[corners[i]].vy * weights[i];
+            vz1 += va_double[corners[i]].vz * weights[i];
+            vx2 += vb_double[corners[i]].vx * weights[i];
+            vy2 += vb_double[corners[i]].vy * weights[i];
+            vz2 += vb_double[corners[i]].vz * weights[i];
+        }
+        *vx = dt * vx1 + (1.0 - dt) * vx2;
+        *vy = dt * vy1 + (1.0 - dt) * vy2;
+        *vz = dt * vz1 + (1.0 - dt) * vz2;
+    }
+}
+
+/******************************************************************************
+ * Get velocity field at a point. The velocities have float data type.
+ *
+ * Input:
+ *  x, y, z: the spatial positions.
+ *  t: current time.
+ ******************************************************************************/
+void get_float_velocity_at_point(double x, double y, double z, double t,
+        float *vx, float *vy, float *vz)
+{
+    long int corners[8];
+    double weights[8];
+    double dt, vx1, vx2, vy1, vy2, vz1, vz2;
+    *vx = 0.0; *vy = 0.0; *vz = 0.0;
+    vx1 = 0.0; vy1 = 0.0; vz1 = 0.0;
+    vx2 = 0.0; vy2 = 0.0; vz2 = 0.0;
+    get_trilinar_parameters(x, y, z, t, corners, weights, &dt);
+    if (multi_tframe == 0) {
+        for (int i = 0; i < 8; i++) {
+            *vx += vc_float[corners[i]].vx * weights[i];
+            *vy += vc_float[corners[i]].vy * weights[i];
+            *vz += vc_float[corners[i]].vz * weights[i];
+        }
+    } else {
+        for (int i = 0; i < 8; i++) {
+            vx1 += va_float[corners[i]].vx * weights[i];
+            vy1 += va_float[corners[i]].vy * weights[i];
+            vz1 += va_float[corners[i]].vz * weights[i];
+            vx2 += vb_float[corners[i]].vx * weights[i];
+            vy2 += vb_float[corners[i]].vy * weights[i];
+            vz2 += vb_float[corners[i]].vz * weights[i];
+        }
+        *vx = dt * vx1 + (1.0 - dt) * vx2;
+        *vy = dt * vy1 + (1.0 - dt) * vy2;
+        *vz = dt * vz1 + (1.0 - dt) * vz2;
     }
 }

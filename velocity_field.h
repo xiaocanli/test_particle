@@ -23,3 +23,9 @@ void free_vfield(void);
 void read_vfields_h5(int ct, char *fname, char *gname, int data_type);
 
 void read_vfields_binary(char *filepath, int ct, int data_type);
+
+void get_double_velocity_at_point(double x, double y, double z, double t,
+        double *vx, double *vy, double *vz);
+
+void get_float_velocity_at_point(double x, double y, double z, double t,
+        float *vx, float *vy, float *vz);

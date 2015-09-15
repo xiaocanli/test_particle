@@ -52,8 +52,6 @@ void get_emf(double x, double y, double z, double t, int system_type,
     /* else if (system_type == 2){ */
     /*     getemf_ff(x, y, z, t, emf); */
     /* } */
-    //printf("Bx, By, Bz, Ex, Ey, Ez: %10.6e %10.6e %10.6e %10.6e %10.6e %10.6e\n",
-    //        emf->Bx, emf->By, emf->Bz, emf->Ex, emf->Ey, emf->Ez);
 }
 
 /******************************************************************************

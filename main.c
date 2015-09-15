@@ -27,6 +27,7 @@
 #include "diagnostics.h"
 #include "wlcs.h"
 #include "velocity_field.h"
+#include "magnetic_field.h"
 /* #include "cbmpi.h" */
 /* #include "tracking.h" */
 /* #include "force_free.h" */
@@ -103,7 +104,13 @@ int main(int argc, char **argv)
         /* wire-loop current system */
         free_config();
     }
-    free_vfield();
+    if (system_type == 2) {
+        free_vfield();
+    }
+    if (system_type == 3) {
+        free_vfield();
+        free_bfield();
+    }
     free(nsteps_ptl_tracking);
     free(ptl);
     free(nptl_accumulate);

@@ -9,6 +9,7 @@
 #include "wlcs.h"
 #include "velocity_field.h"
 #include "force_free.h"
+#include "magnetic_field.h"
 
 void get_spatial_domain(int mpi_rank, FILE *fp, domain *simul_domain);
 int get_system_type(int mpi_rank, FILE *fp);
@@ -283,9 +284,13 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
             get_fields_dims(mpi_rank, config_file_name, simul_domain,
                     &simul_grid, &v0_field, &B0_field, &multi_tframe);
             set_variables_velocity(&simul_grid, &simul_domain, v0_field,
-                    multi_tframe, sizeof(double));
+                    multi_tframe, sizeof(float));
+            set_variables_bfield(&simul_grid, &simul_domain, B0_field,
+                    multi_tframe, sizeof(float));
             initialize_vfield();
-            read_vfields_binary("/scratch/deng/for_xiaocan/", 16, sizeof(double));
+            initialize_bfield();
+            read_vfields_binary("/scratch/deng/for_xiaocan/", 16, sizeof(float));
+            read_bfields_binary("/scratch/deng/for_xiaocan/", 16, sizeof(float));
             break;
         default:
             if (mpi_rank == 0) {

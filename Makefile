@@ -15,7 +15,7 @@ LIBS = $(HDF5LIB) -ldl -lm
 # 	   tracking.c wlcs.c domain.c
 SRCS_CHAOTICB = main.c domain.c wlcs.c particle_info.c diagnostics.c emfields.c \
 				quick_sort.c tracking.c force_free.c data_io.c velocity_field.c \
-				interpolation.c
+				interpolation.c magnetic_field.c
 
 SRCS_MAGNETIC = magnetic_ene.c
 

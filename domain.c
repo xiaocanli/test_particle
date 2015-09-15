@@ -7,13 +7,17 @@
 #include "domain.h"
 #include "constants.h"
 #include "wlcs.h"
+#include "velocity_field.h"
 #include "force_free.h"
 
 void get_spatial_domain(int mpi_rank, FILE *fp, domain *simul_domain);
 int get_system_type(int mpi_rank, FILE *fp);
 int get_tracking_time_method(int mpi_rank, FILE *fp, double *tott,
         int *tracking_method);
-int get_system_info(int mpi_rank, int system_type, char *config_file_name);
+int get_system_info(int mpi_rank, int system_type, char *config_file_name,
+        domain simul_domain);
+void get_fields_dims(int mpi_rank, char *config_file_name, domain simul_domain,
+        grids *simul_grid, double *v0_field, double *B0_field, int *multi_tframe);
 
 /******************************************************************************
  * Read simulation domain dimensions, flag for the systems to use.
@@ -48,7 +52,7 @@ int read_domain(int mpi_rank, char *config_file_name, domain *simul_domain,
 
     fclose(fp);
 
-    err = get_system_info(mpi_rank, *system_type, config_file_name);
+    err = get_system_info(mpi_rank, *system_type, config_file_name, *simul_domain);
     if (err < 0) {
         return -1;
     }
@@ -248,10 +252,14 @@ int get_system_type(int mpi_rank, FILE *fp)
  *  mpi_rank: the rank of current MPI process.
  *  system_type: the system type.
  *  config_file_name: the configuration file name.
+ *  simul_domain: the simulation domain information.
  ******************************************************************************/
-int get_system_info(int mpi_rank, int system_type, char *config_file_name)
+int get_system_info(int mpi_rank, int system_type, char *config_file_name,
+        domain simul_domain)
 {
     int multi_tframe;
+    grids simul_grid;
+    double v0_field, B0_field;
     switch (system_type) {
         case 0:
             if (mpi_rank == 0) {
@@ -263,17 +271,13 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name)
             read_wlcs(mpi_rank, config_file_name);
             break;
         case 2:
-            /* double v0; */
-            /* int tot_grid; */
-            /* dim_vfield(&v0); */
+            get_fields_dims(mpi_rank, config_file_name, simul_domain,
+                    &simul_grid, &v0_field, &B0_field, &multi_tframe);
             get_param_ff(mpi_rank, config_file_name);
-            /* tot_grid = simul_grid.nx*simul_grid.ny*simul_grid.nz; */
-            /* vfd_b = (struct vfields*)malloc(sizeof(struct vfields)*tot_grid); */
-            /* read_vfields(0, v0, vfd_b); */
-            /* if (multi_tframe == 1) { */
-            /*     vfd_a = (struct vfields*)malloc(sizeof(struct vfields)*tot_grid); */
-            /*     read_vfields(1, v0, vfd_a); */
-            /* } */
+            set_variables_velocity(&simul_grid, &simul_domain, v0_field,
+                    multi_tframe, sizeof(double));
+            initialize_vfield();
+            read_vfields_h5(0, "data/u4d.h5", "/u4d", sizeof(double));
             break;
         default:
             if (mpi_rank == 0) {
@@ -367,7 +371,7 @@ void get_fields_dims(int mpi_rank, char *config_file_name, domain simul_domain,
                 "(%d, %d, %d, %d)\n", simul_grid->nx, simul_grid->ny,
                 simul_grid->nz, simul_grid->nt );
         printf("The normalization for velocity filed (in c): %lf\n", *v0_field);
-        printf("The normalization for magnetic filed (in c): %lf\n", *B0_field);
+        printf("The normalization for magnetic filed (in Gauss): %lf\n", *B0_field);
         if (*multi_tframe == 1) {
             printf("Multiple time slices of the fields are used.\n");
         } else {

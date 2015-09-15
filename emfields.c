@@ -4,6 +4,7 @@
 #include <math.h>
 #include <time.h>
 #include <mpi.h>
+#include "constants.h"
 #include "hdf5.h"
 #include "emfields.h"
 #include "wlcs.h"

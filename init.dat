@@ -17,7 +17,7 @@ zmax = 1.0
 
 --------------------------------- System info --------------------------------
 0: test, 1: wlcs, 2: forcefree 3: MHD+test particle
-Flag for the system to use: 1
+Flag for the system to use: 2
 Number of WLCSs: 8
 ------------------------------------------------------------------------------
 
@@ -32,13 +32,14 @@ Total tracking time (s): 10.0
 Tracking method to use: 0
 ------------------------------------------------------------------------------
 
-------------------------------- Velocity fields ------------------------------ 
+-------------------------------- Fields arrays -------------------------------
 x dimension(nx): 256
 y dimension(ny): 256
 z dimension(nz): 256
 time slices(nt): 16
-Normalized v0: 0.001
-If multiple t slice: 1
+Velocity field normalization (in light speed): 0.001
+Magnetic field normalization (in Gauss): 1.0
+If using multiple time slices: 0
 ------------------------------------------------------------------------------
 
 ----------------------------- Boundary conditions ----------------------------

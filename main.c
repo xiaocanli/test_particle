@@ -29,21 +29,7 @@
 #include "velocity_field.h"
 #include "magnetic_field.h"
 #include "emfields.h"
-/* #include "cbmpi.h" */
-/* #include "tracking.h" */
-/* #include "force_free.h" */
-
-/* struct vfields *vfd_a, *vfd_b; */
-
-/* double pmass, pcharge, charge_mass; */
-/* int ierr, mpi_size, mpi_rank; */
-/* int isystem; /1* flag for wire-loop current systems *1/ */
-/* int charge_sign; */
-/* int bc_flag; /1* Flag for boundary conditions for particles. *1/ */
-/* int nptl_tot; */
-/* int *nptl_accumulate; */
-/* int ntest_ptl_tot = 400; */
-/* int *nsteps_ptl_tracking; */
+#include "tracking.h"
 
 /******************************************************************************
  * Main program for test particle simulation.
@@ -96,7 +82,15 @@ int main(int argc, char **argv)
     calc_energy_spectrum(mpi_rank, nptl, ptl, nbins, nt_out, pmass, bc_flag);
     save_particles_fields(mpi_rank, nptl, ptl, nptl_tot, nptl_accumulate,
             "data/particles_fields_init.h5", system_type);
-    /* particle_tracking_hybrid(nptl, dt, 0, ptl); */
+    set_ptl_params_tracking(bc_flag, charge_mass, charge_sign);
+
+    int nsteps_output = 10;
+    int *ntraj_accum;
+    int traj_diagnose = 0;
+    particles *ptl_time;
+    particle_tracking_hybrid(mpi_rank, nptl, dt, nbins, nt_out, bc_flag,
+            nsteps_output, pmass, ntraj_accum, tracking_method, traj_diagnose,
+            nsteps_ptl_tracking, ptl, ptl_time);
     /* trajectory_diagnostics(nptl, dt, ptl); */
 
     /* release_memory(ptl); */

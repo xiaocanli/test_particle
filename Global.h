@@ -30,12 +30,6 @@
 
 typedef enum {false, true} bool;
 
-/* Domain information for grids */
-typedef struct grids{
-    int nx, ny, nz, nt;
-    double dx, dy, dz, dt;
-} grids;
-
 /* Parameters for force-free field */
 typedef struct param_ff {
     double B0, lambda0;

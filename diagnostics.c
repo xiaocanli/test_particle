@@ -306,7 +306,7 @@ void save_particles_fields(int mpi_rank, int nptl, struct particles *ptl,
     struct emfields *emf_ptl; /* emf at particles' position. */
     emf_ptl = (struct emfields *)malloc(sizeof(emfields)*nptl);
     for (i=0; i<nptl; i++ ) {
-        get_emf(ptl[i].x, ptl[i].y, ptl[i].z, ptl[i].t, system_type, &emf_ptl[i]);
+        get_emf(ptl[i].x, ptl[i].y, ptl[i].z, ptl[i].t, &emf_ptl[i]);
     }
 
     MPI_Comm comm = MPI_COMM_WORLD;
@@ -544,6 +544,7 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
     }
 
     /* particle_tracking_hybrid(nptl_traj, dt, 1, ptl_traj); */
+
     save_particles_fields(mpi_rank, ntraj, ptl_time,
             ntraj_accum_global[mpi_size-1], ntraj_accum_global,
             "data/particle_diagnostics.h5", system_type);

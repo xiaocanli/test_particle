@@ -11,6 +11,7 @@
 #include "force_free.h"
 #include "magnetic_field.h"
 #include "emfields.h"
+#include "tracking.h"
 
 void get_spatial_domain(int mpi_rank, FILE *fp, domain *simul_domain);
 int get_system_type(int mpi_rank, FILE *fp);
@@ -279,6 +280,8 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
             get_param_ff(mpi_rank, config_file_name);
             set_variables_velocity(&simul_grid, &simul_domain, v0_field,
                     multi_tframe, sizeof(double));
+            set_variables_tracking(&simul_grid, &simul_domain, system_type,
+                    multi_tframe);
             initialize_vfield();
             read_vfields_h5(0, "data/u4d.h5", "/u4d", sizeof(double));
             break;
@@ -289,6 +292,8 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
                     multi_tframe, sizeof(float));
             set_variables_bfield(&simul_grid, &simul_domain, B0_field,
                     multi_tframe, sizeof(float));
+            set_variables_tracking(&simul_grid, &simul_domain, system_type,
+                    multi_tframe);
             initialize_vfield();
             initialize_bfield();
             read_vfields_binary("/scratch/deng/for_xiaocan/", 16, sizeof(float));

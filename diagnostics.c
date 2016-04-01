@@ -71,11 +71,13 @@ void calc_energy_spectrum(int mpi_rank, int nptl, struct particles *ptl,
         ebins[0] = 0.5 * emin;
         einterval[0] = emin;
         for (i = 1; i < nbins-1; i++) {
-            ebins[i] = exp(logemin+logde*(i-0.5));
-            einterval[i] = exp(logemin)*(exp(logde*i)-exp(logde*(i-1)));
+            ebins[i] = pow(10, logemin+logde*(i-0.5));
+            einterval[i] = pow(10, logemin)*(pow(10, logde*i)-
+                    pow(10, logde*(i-1)));
         }
-        ebins[nbins-1] = exp(logemax+0.5*logde);
-        einterval[nbins-1] = exp(logemin)*(exp(logde*nbins)-exp(logde*(nbins-1)));
+        ebins[nbins-1] = pow(10, logemax+0.5*logde);
+        einterval[nbins-1] = pow(10, logemin)*(pow(10, logde*nbins) -
+                pow(10, logde*(nbins-1)));
     }
 
     for (i = 0; i < nptl; i++) {
@@ -227,9 +229,10 @@ void collect_espectrum(int mpi_rank, int nbins, int nt_out,
     int i, j;
     einterval[0] = emin;
     for (i=1; i<nbins-1; i++) {
-        einterval[i] = exp(logemin)*(exp(logde*i)-exp(logde*(i-1)));
+        einterval[i] = pow(10, logemin)*(pow(10, logde*i)-pow(10, logde*(i-1)));
     }
-    einterval[nbins-1] = exp(logemin)*(exp(logde*nbins)-exp(logde*(nbins-1)));
+    einterval[nbins-1] = pow(10, logemin)*(pow(10, logde*nbins) -
+            pow(10, logde*(nbins-1)));
 
     /* Reduce the spectrum to MPI process 0 */
     MPI_Reduce(espectrum, espect_tot, nbins*nt_out, MPI_DOUBLE, MPI_SUM, 0,

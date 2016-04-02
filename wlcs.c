@@ -21,6 +21,8 @@
 #include <math.h>
 #include "wlcs.h"
 #include "constants.h"
+#include "bessel.h"
+/* #include <gsl/gsl_sf_bessel.h> */
 
 struct wlcs *config;
 int nwlcs, iBessel;
@@ -258,14 +260,19 @@ void getWire_Bessel(double x, double y, double z, int iconf, double t,
             config[iconf].cosphi_wr, config[iconf].sinphi_wr);
 	rho = sqrt(xp*xp + yp*yp); 
     x0 = 2.32E-2 * rho * omega; // page 9
-	/* bj0 = bessj0(x0); */
-	/* by0 = bessy0(x0); */
-	/* bj1 = bessj1(x0); */
-	/* by1 = bessy1(x0); */
-    bj0 = j0(x0);
-	by0 = y0(x0);
-    bj1 = j1(x0);
-	by1 = y1(x0);
+    // Use single-precision for speed
+    /* bj0 = BESSJ0(x0); */
+    /* bj1 = BESSJ1(x0); */
+    /* by0 = BESSY0(x0); */
+    /* by1 = BESSY1(x0); */
+    bj0 = j0f(x0);
+    bj1 = j1f(x0);
+	by0 = y0f(x0);
+	by1 = y1f(x0);
+    /* bj0 = gsl_sf_bessel_J0(x0); */
+	/* by0 = gsl_sf_bessel_Y0(x0); */
+    /* bj1 = gsl_sf_bessel_J1(x0); */
+	/* by1 = gsl_sf_bessel_Y1(x0); */
 
 	const0 = (curI*I0) / (5.0*rho*L0) * M_PI/2.0;
 
@@ -353,11 +360,9 @@ void getWireB(double x, double y, double z, int iconf, struct bfields *bmf)
 void getLoopB(double x, double y, double z, int iconf, struct bfields *bmf)
 {
 	double xp, yp, zp, curI, al;
-	double k_tmp, E_tmp, F_tmp;
-	double x_tmp, rho_tmp, k2_tmp, BpRho4, BpRho3;
-    double tmp1, tmp2, tmp3, tmp4;
-    double rhop1, rhop3;
     double cosalpha, sinalpha, cosbeta, sinbeta;
+    double Irho, rho_xy, al2, r2, irho1, irho2, Brho, Bz;
+	double k, ellk, elle;
 	
     bmf->Bx = 0.0; bmf->By = 0.0; bmf->Bz = 0.0; // initilization
 
@@ -374,36 +379,24 @@ void getLoopB(double x, double y, double z, int iconf, struct bfields *bmf)
 
     transform(&xp, &yp, &zp, cosbeta, sinbeta, cosalpha, sinalpha);
 
-	rhop3 = sqrt(xp*xp + yp*yp);
-    rhop1 = sqrt((rhop3 + al)*(rhop3 + al) + zp * zp);
+    Irho = 0.2 * curI;
+    rho_xy = sqrt(xp*xp + yp*yp);
+    al2 = al * al;
+    r2 = rho_xy * rho_xy + zp * zp;
+    irho1 = 1 / sqrt((al+rho_xy) * (al+rho_xy) + zp * zp);
+    irho2 = 1 / ((al-rho_xy) * (al-rho_xy) + zp * zp);
 
-    /* The magnetic field (Bpx3, Bpy3, Bpz3) is obtained in */
-    /* the frame defined by (xp, yp, zp) */
-	k_tmp = sqrt(4.0*al*rhop3) / rhop1;
-    ellint(k_tmp, &E_tmp, &F_tmp);
-	x_tmp = 2.0 * al / sqrt(al*al + zp*zp);
-	rho_tmp = rhop3 / al;
-	k2_tmp = x_tmp * sqrt(rho_tmp) / sqrt(1.0 + 0.25 * x_tmp * x_tmp * 
-            (rho_tmp * rho_tmp + 2.0 * rho_tmp));
-	BpRho4 = 0.2 * curI * zp / (2.0 * al * al) * 
-            (3.0*M_PI/32.0) * pow(k2_tmp, 5) * 
-            pow(1.0/rho_tmp, 3.0/2.0) / (1.0 - k2_tmp*k2_tmp);
+	k = sqrt(4.0 * al * rho_xy) * irho1;
+    ellint(k, &elle, &ellk);
+    Brho = Irho * zp * irho1 * (-ellk + (al2 + r2) * elle * irho2) / rho_xy;
+	if(rho_xy == 0.0) Brho = 0.0;
 
-    tmp1 = 0.2 * curI / rhop1;
-    tmp2 = rhop3 * rhop3 + zp * zp;
-    tmp3 = al * al;
-    tmp4 = E_tmp / (tmp2 + tmp3 - 2.0 * rhop3 * al);
+    Bz = Irho * irho1 * (ellk - (r2 - al2) * elle * irho2);
 
-	BpRho3 = tmp1 * zp * (-F_tmp + (tmp2 + tmp3) * tmp4) / rhop3;
-
-	if(rhop3 == 0.0){
-		BpRho3 = BpRho4;
-	}
-
-    BpRho3 /= rhop3; // for saving computing time
-	bmf->Bx = BpRho3 * xp;
-	bmf->By = BpRho3 * yp;
-	bmf->Bz = tmp1 * (F_tmp - (tmp2 - tmp3) * tmp4);
+    Brho /= rho_xy;
+	bmf->Bx = Brho * xp;
+	bmf->By = Brho * yp;
+	bmf->Bz = Bz;
         
     reverse_tran(&bmf->Bx, &bmf->By, &bmf->Bz, 
             cosbeta, sinbeta, cosalpha, sinalpha);
@@ -423,8 +416,9 @@ void ellint(double k, double *elle, double *ellf)
     double m, Kj[20], Ej[20], qj[15], Hj[11];
     double ellf1 = 0.0; // associate integrals
     double q1 = 0.0, Hm = 0.0; // used when m is [0.9, 1.0]
+    double m1, powj = 1.0;
     int i, j;
-    double powj = 1.0;
+
     m = k * k; // elliptic parameter
     *elle = 0.0; *ellf = 0.0;
 
@@ -455,10 +449,11 @@ void ellint(double k, double *elle, double *ellf)
             Kj[8] = 0.091439629201749751; Ej[8] = -0.005807424012956090;
             Kj[9] = 0.085842591595413900; Ej[9] = -0.004809187786009338;
             Kj[10] = 0.081541118718303215;
+            m1 = m - 0.05;
             for(j = 0; j <= 9; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.05;
+                powj *= m1;
             }
             *ellf += Kj[10] * powj;
             break;
@@ -475,10 +470,11 @@ void ellint(double k, double *elle, double *ellf)
             Kj[9] = 0.234180501294209925; Ej[9] = -0.011799303775587354;
             Kj[10] = 0.248557682972264071; Ej[10] = -0.011197445703074968;
             Kj[11] = 0.266363809892617521;
+            m1 = m - 0.15;
             for(j = 0; j <= 10; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.15;
+                powj *= m1;
             }
             *ellf += Kj[11] * powj;
             break;
@@ -495,10 +491,11 @@ void ellint(double k, double *elle, double *ellf)
             Kj[9] = 0.724263522282908870; Ej[9] = -0.032371395314758122;
             Kj[10] = 0.871013847709812357; Ej[10] = -0.034789960386404158;
             Kj[11] = 1.057652872753547036;
+            m1 = m - 0.25;
             for(j = 0; j <= 10; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.25;
+                powj *= m1;
             }
             *ellf += Kj[11] * powj;
             break;
@@ -516,10 +513,11 @@ void ellint(double k, double *elle, double *ellf)
             Kj[10] = 3.652109747319039160; Ej[10] = -0.127053585157696036;
             Kj[11] = 5.115867135558865806; Ej[11] = -0.160791120691274606;
             Kj[12] = 7.224080007363877411;
+            m1 = m - 0.35;
             for(j = 0; j <= 11; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.35;
+                powj *= m1;
             }
             *ellf += Kj[12] * powj;
             break;
@@ -538,10 +536,11 @@ void ellint(double k, double *elle, double *ellf)
             Kj[11] = 32.20638657246426863; Ej[11] = -0.860523235727239756;
             Kj[12] = 53.73749198700554656; Ej[12] = -1.308833205758540162;
             Kj[13] = 90.27388602940998849;
+            m1 = m - 0.45;
             for(j = 0; j <= 12; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.45;
+                powj *= m1;
             }
             *ellf += Kj[13] * powj;
             break;
@@ -561,13 +560,14 @@ void ellint(double k, double *elle, double *ellf)
             Kj[12] = 598.3851815055010179; Ej[12] = -11.97703130208884026;
             Kj[13] = 1228.420013075863451;
             Kj[14] = 2536.529755382764488;
+            m1 = m - 0.55;
             for(j = 0; j <= 12; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.55;
+                powj *= m1;
             }
             *ellf += Kj[13] * powj;
-            powj *= m - 0.55;
+            powj *= m1;
             *ellf += Kj[14] * powj;
             break;
         case 6:
@@ -588,13 +588,14 @@ void ellint(double k, double *elle, double *ellf)
             Kj[14] = 85713.07608195964685; Ej[14] = -1137.380822169360061;
             Kj[15] = 228672.1890493117096;
             Kj[16] = 612757.2711915852774;
+            m1 = m - 0.65;
             for(j = 0; j <= 14; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.65;
+                powj *= m1;
             }
             *ellf += Kj[15] * powj;
-            powj *= m - 0.65;
+            powj *= m1;
             *ellf += Kj[16] * powj;
 //            printf("ellf elle %f %f\n",*ellf, *elle);
             break;
@@ -619,15 +620,16 @@ void ellint(double k, double *elle, double *ellf)
             Kj[17] = 503352186.6866284541;
             Kj[18] = 1901975729.538660119;
             Kj[19] = 7208915015.330103756;
+            m1 = m - 0.75;
             for(j = 0; j <= 16; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.75;
+                powj *= m1;
             }
             *ellf += Kj[17] * powj;
-            powj *= m - 0.75;
+            powj *= m1;
             *ellf += Kj[18] * powj;
-            powj *= m - 0.75;
+            powj *= m1;
             *ellf += Kj[19] * powj;
             break;
         case 8:
@@ -647,13 +649,14 @@ void ellint(double k, double *elle, double *ellf)
             Kj[13] = 265444188.6527127967; Ej[13] = -1920033.413682634405;
             Kj[14] = 1408862325.028702687;
             Kj[15] = 7515687935.373774627;
+            m1 = m - 0.825;
             for(j = 0; j <= 13; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.825;
+                powj *= m1;
             }
             *ellf += Kj[14] * powj;
-            powj *= m - 0.825;
+            powj *= m1;
             *ellf += Kj[15] * powj;
             break;
         case 9:
@@ -677,15 +680,16 @@ void ellint(double k, double *elle, double *ellf)
             Kj[17] = 66101242752484.95041;
             Kj[18] = 499488053713388.7989;
             Kj[19] = 37859743397240299.20;
+            m1 = m - 0.875;
             for(j = 0; j <= 16; j++) {
                 *ellf += Kj[j] * powj; 
                 *elle += Ej[j] * powj; 
-                powj *= m - 0.875;
+                powj *= m1;
             }
             *ellf += Kj[17] * powj;
-            powj *= m - 0.875;
+            powj *= m1;
             *ellf += Kj[18] * powj;
-            powj *= m - 0.875;
+            powj *= m1;
             *ellf += Kj[19] * powj;
             break;
         case 10:
@@ -700,9 +704,10 @@ void ellint(double k, double *elle, double *ellf)
             Kj[8] = 0.091439629201749751; Ej[8] = -0.005807424012956090;
             Kj[9] = 0.085842591595413900; Ej[9] = -0.004809187786009338;
             Kj[10] = 0.081541118718303215;
+            m1 = m - 0.95;
             for(j = 0; j <= 9; j++) {
                 ellf1 += Kj[j] * powj; 
-                powj *= 0.95 - m;
+                powj *= m1;
 //                elle1 += Ej[j] * pow(0.95 - m, j); 
             }
             ellf1 += Kj[10] * powj;
@@ -722,10 +727,11 @@ void ellint(double k, double *elle, double *ellf)
             qj[13] = 9569130097211.0 / 2251799813685248.0;
             qj[14] = 17652604545791.0 / 4503599627370496.0;
 
-            powj = 1.0 - m;
+            m1 = 1.0 - m;
+            powj = m1;
             for(j = 1; j<= 14; j++) {
                 q1 += qj[j] * powj;
-                powj *= 1.0 - m;
+                powj *= m1;
             }
 
             Hj[0] = 0.040030102010319852;
@@ -741,9 +747,10 @@ void ellint(double k, double *elle, double *ellf)
             Hj[10] = 0.085627517951558365;
            
             powj = 1.0;
+            m1 = 0.95 - m;
             for(j = 0; j <= 10; j++) {
                 Hm += Hj[j] * powj;
-                powj *= 0.95 - m;
+                powj *= m1;
             }
 
             *ellf = -log(q1) * (ellf1/M_PI);
@@ -769,7 +776,7 @@ void getemf_wlcs(double x, double y, double z, double t, struct emfields *emf_to
     emf.Ex = 0.0; emf.Ey = 0.0; emf.Ez = 0.0;
     bmf.Bx = 0.0; bmf.By = 0.0; bmf.Bz = 0.0;
 
-    B0 = 0.0;
+    B0 = 10.0;
     for(i = 0; i < nwlcs; i++){
 	    if(iBessel == 0){
 		    getWireB(x, y, z, i, &bmf);

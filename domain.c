@@ -273,6 +273,15 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
         case 1:
             /* Wire-loop current system. */
             read_wlcs(mpi_rank, config_file_name);
+            simul_grid.nx = 0;
+            simul_grid.ny = 0;
+            simul_grid.nz = 0;
+            simul_grid.nt = 0;
+            simul_grid.dx = 0;
+            simul_grid.dy = 0;
+            simul_grid.dz = 0;
+            simul_grid.dt = 0;
+            set_variables_tracking(&simul_grid, &simul_domain, 1, 0);
             break;
         case 2:
             get_fields_dims(mpi_rank, config_file_name, simul_domain,

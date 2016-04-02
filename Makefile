@@ -3,11 +3,15 @@
 #
 CC = mpicc
 # define any compile-time flags
-CFLAGS = -fopenmp -O3 -Wall -g -std=gnu99
+CFLAGS = -Werror -Wall -g -pedantic -std=gnu99 -Wno-long-long
+OPTIMIZATION = -fopenmp -O2 -vec-report2 -xAVX -Wno-strict-aliasing -fomit-frame-pointer
+# CFLAGS = -Wall -g -pedantic -std=gnu99 -Wno-long-long
+# OPTIMIZATION = -fopenmp -O2 -ffast-math -Wno-strict-aliasing -fomit-frame-pointer
 
 INCLUDES = -I$(HDF5_INCL)
 LFLAGS = 
 HDF5LIB = -L$(HDF5_ROOT)/lib -lhdf5
+# LIBS = $(HDF5LIB) -ldl -lm -lgsl -lgslcblas
 LIBS = $(HDF5LIB) -ldl -lm
 
 # define the C source files
@@ -15,7 +19,7 @@ LIBS = $(HDF5LIB) -ldl -lm
 # 	   tracking.c wlcs.c domain.c
 SRCS_CHAOTICB = main.c domain.c wlcs.c particle_info.c diagnostics.c emfields.c \
 				quick_sort.c tracking.c force_free.c data_io.c velocity_field.c \
-				interpolation.c magnetic_field.c
+				interpolation.c magnetic_field.c bessel.c
 
 SRCS_MAGNETIC = magnetic_ene.c
 
@@ -48,13 +52,15 @@ magnetic_ene:	$(MAGNETIC_ENE)
 	@echo  $(MAGNETIC_ENE) is successfully compiled!
 
 $(CHAOTICB): $(OBJS_CHAOTICB) 
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(CHAOTICB) $(OBJS_CHAOTICB) $(LFLAGS) $(LIBS)
+	$(CC) $(CFLAGS) $(OPTIMIZATION) $(INCLUDES) -o $(CHAOTICB) \
+		$(OBJS_CHAOTICB) $(LFLAGS) $(LIBS)
 
 $(MAGNETIC_ENE): $(OBJS_MAGNETIC) 
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(MAGNETIC_ENE) $(OBJS_MAGNETIC) $(LFLAGS) $(LIBS)
+	$(CC) $(CFLAGS) $(OPTIMIZATION) $(INCLUDES) -o $(MAGNETIC_ENE) \
+		$(OBJS_MAGNETIC) $(LFLAGS) $(LIBS)
 
 .c.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
+	$(CC) $(CFLAGS) $(OPTIMIZATION) $(INCLUDES) -c $<  -o $@
 
 clean:
 	$(RM) *.o *~ $(MAIN) $(TRAJ)

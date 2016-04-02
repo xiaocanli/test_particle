@@ -85,7 +85,7 @@ void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
 {
     int estep, einterval_t, ptl_id;
     int *ntraj_diagnostics_points_array;
-    estep = simul_domain.tmax /dt;
+    estep = simul_domain.tmax / dt;
     einterval_t = estep/nt_out;
     printf("Energy output time interval %d\n", einterval_t);
 

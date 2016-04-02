@@ -43,8 +43,9 @@ int main(int argc, char **argv)
     double ptemp, pmass, pcharge, charge_mass, vthe;
     int nptl, nbins, nt_out;
 
-    ierr = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ipvd);
+    /* ierr = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ipvd); */
     /* ierr = MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &ipvd); */
+    ierr = MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &ipvd);
     ierr = MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     ierr = MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
@@ -78,7 +79,7 @@ int main(int argc, char **argv)
     /* Number of steps each particle is tracked. */
     int *nsteps_ptl_tracking = (int *)malloc(sizeof(int)*nptl);
 
-    double dt = 1.0E-5;
+    double dt = 1.0E-6;
     calc_energy_spectrum(mpi_rank, nptl, ptl, nbins, nt_out, pmass, bc_flag);
     save_particles_fields(mpi_rank, nptl, ptl, nptl_tot, nptl_accumulate,
             "data/particles_fields_init.h5", system_type);

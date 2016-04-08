@@ -51,4 +51,11 @@ void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
 
 void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
         double pmass, int nptl_traj_tot, int system_type, struct particles *ptl,
-        int *nptl_accumulate, int *nsteps_ptl_tracking);
+        int *nptl_accumulate, int *nsteps_ptl_tracking, int nbins, int nt_out,
+        int bc_flag, int tracking_method, particles *ptl_init);
+
+void calc_diff_coeff(particles *ptl_init, particles *ptl, double dt,
+        double *drr, double *dpp, double *duu);
+
+void collect_diff_coeffs(int mpi_rank, int estep, double *drr, double *dpp,
+        double *duu, char *fname, int *nptl_remain);

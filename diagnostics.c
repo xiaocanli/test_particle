@@ -1,17 +1,17 @@
 /******************************************************************************
 * This file is part of CHAOTICB.
 * Copyright (C) <2012-2014> <Xiaocan Li> <xl0009@uah.edu>
-* 
+*
 * CHAOTICB is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
 * the Free Software Foundation, either version 3 of the License, or
 * (at your option) any later version.
-* 
+
 * CHAOTICB is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
-* 
+*
 * You should have received a copy of the GNU General Public License
 * along with CHAOTICB.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
@@ -27,7 +27,7 @@
 #include "particle_info.h"
 #include "emfields.h"
 #include "quick_sort.h"
-/* #include "tracking.h" */
+#include "tracking.h"
 
 double emin, emax, logemin, logemax, logde;
 int energy_type;
@@ -186,15 +186,15 @@ void ptl_energy_adaptive(double *ydense, int t1, int t2, int tid, int nbins,
  * Output:
  *  espectrum is updated.
  ******************************************************************************/
-void ptl_energy_fixed(int ptl_id, int it, int tid, struct particles *ptl, 
+void ptl_energy_fixed(int ptl_id, int it, int tid, struct particles *ptl,
         int nbins, int nt_out, double pmass, double espectrum[][nbins*nt_out])
 {
     double beta, gama, ene, rest_ene;
     int ibin;
 
     rest_ene = REST_ENE_PROTON * pmass;
-    beta = sqrt(ptl[ptl_id].vx*ptl[ptl_id].vx + 
-            ptl[ptl_id].vy*ptl[ptl_id].vy + 
+    beta = sqrt(ptl[ptl_id].vx*ptl[ptl_id].vx +
+            ptl[ptl_id].vy*ptl[ptl_id].vy +
             ptl[ptl_id].vz*ptl[ptl_id].vz);
     gama = 1.0 / sqrt(1.0-beta*beta);
     ene = (gama-1.0) * rest_ene;
@@ -363,15 +363,15 @@ void save_particles_fields(int mpi_rank, int nptl, struct particles *ptl,
 
     memspace = H5Screate_simple(rank, count, NULL);
     filespace = H5Dget_space(dset_ptl);
-    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, 
+    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset,
             NULL, count, NULL);
-    H5Dwrite(dset_ptl, memtype_ptl, memspace, filespace, 
+    H5Dwrite(dset_ptl, memtype_ptl, memspace, filespace,
             plist_id, ptl);
     H5Sclose(filespace);
     filespace = H5Dget_space(dset_emf);
-    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, 
+    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset,
             NULL, count, NULL);
-    H5Dwrite(dset_emf, memtype_emf, memspace, filespace, 
+    H5Dwrite(dset_emf, memtype_emf, memspace, filespace,
             plist_id, emf_ptl);
     H5Sclose(filespace);
 
@@ -419,7 +419,7 @@ void sort_particles_energy(int mpi_rank, int nptl, double pmass,
         index_ptl[i] = i;
     }
     quicksort(ptl_ene, index_ptl, nptl);
-    struct particles *ptl_tmp = 
+    struct particles *ptl_tmp =
         (struct particles *)malloc(sizeof(particles)*nptl);
 
     /* Reload particles from initial file. */
@@ -439,7 +439,7 @@ void sort_particles_energy(int mpi_rank, int nptl, double pmass,
 }
 
 /******************************************************************************
- * Choose particles for trajectory diagnostics from the original sorted 
+ * Choose particles for trajectory diagnostics from the original sorted
  * particle array. The sampled particles are uniformly distributed in the
  * original particle array. The total # of trajectory points of those particles
  * is returned.
@@ -448,7 +448,7 @@ void sort_particles_energy(int mpi_rank, int nptl, double pmass,
  *  nptl: total # of particles in this MPI process.
  *  nptl_traj: # of trajectory diagnostics test particles for current MPI process.
  *  nsteps_ptl_tracking: the number of tracking steps for each particle.
- *  ptl: particle structure array.  
+ *  ptl: particle structure array.
  *
  * Output:
  *  ntraj: the total trajectory points for current MPI process.
@@ -496,10 +496,15 @@ void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
  *  ptl: particle structure array.
  *  nptl_accumulate: the accumulative particles numbers along mpi_rank.
  *  nsteps_ptl_tracking: the number of tracking steps for each particle.
+ *  nbins: number of energy bins.
+ *  nt_out: number of diagnostic time frames.
+ *  bc_flag: boundary condition flag. 0 for periodic; 1 for open.
+ *  tracking_method: 0 for fixed step. 1 for adaptive step.
  ******************************************************************************/
 void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
         double pmass, int nptl_traj_tot, int system_type, struct particles *ptl,
-        int *nptl_accumulate, int *nsteps_ptl_tracking)
+        int *nptl_accumulate, int *nsteps_ptl_tracking, int nbins, int nt_out,
+        int bc_flag, int tracking_method, particles *ptl_init)
 {
     int i, nptl_traj, ntraj;
     int ntraj_offset_local;
@@ -512,7 +517,7 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
     particle_broadcast(mpi_rank, mpi_size, nptl_traj_tot, &nptl_traj,
             nptl_traj_accumulate);
     /* Particle trajectory information */
-    struct particles *ptl_traj = 
+    struct particles *ptl_traj =
         (struct particles *)malloc(sizeof(particles)*nptl_traj);
     /* Number of trajectory points for all particles in current MPI process */
     int *ntraj_accum = (int *)malloc(sizeof(int)*nptl_traj);
@@ -542,15 +547,22 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
         } else {
             ntraj_offset_local = ntraj_accum[i-1];
         }
-        memcpy(&ptl_time[ntraj_offset_local], &ptl_traj[i], 
+        memcpy(&ptl_time[ntraj_offset_local], &ptl_traj[i],
                 sizeof(particles));
     }
 
-    /* particle_tracking_hybrid(nptl_traj, dt, 1, ptl_traj); */
+    int traj_diagnose = 1;
+    particle_tracking_hybrid(mpi_rank, nptl_traj, dt, nbins, nt_out, bc_flag,
+            nsteps_output, pmass, ntraj_accum, tracking_method, traj_diagnose,
+            nsteps_ptl_tracking, ptl_traj, ptl_time, ptl_init);
 
     save_particles_fields(mpi_rank, ntraj, ptl_time,
             ntraj_accum_global[mpi_size-1], ntraj_accum_global,
             "data/particle_diagnostics.h5", system_type);
+
+    /* for (i = 0; i < 16; i++) { */
+    /*     printf("%f\n", ptl[i].x); */
+    /* } */
 
     free(ntraj_accum_global);
     free(ntraj_accum);
@@ -643,4 +655,80 @@ void get_spectrum_info(int mpi_rank, char *config_file_name, int *nbins,
         }
         printf("=========================================\n");
     }
+}
+
+/******************************************************************************
+ * Calculate diffusion coefficients.
+ *
+ * Input:
+ *  ptl_init: the initial particle information.
+ *  ptl: current particle information.
+ *
+ * Output:
+ *  drr, dpp, duu: diffusion coefficients.
+ *****************************************************************************/
+void calc_diff_coeff(particles *ptl_init, particles *ptl, double dt,
+        double *drr, double *dpp, double *duu)
+{
+    double t, vx, vy, vz, vx0, vy0, vz0, gama, gama0;
+    t = ptl->t * 2 + dt;
+    *drr = 0.0;
+    *dpp = 0.0;
+    *duu = 0.0;
+    *drr = (pow(ptl_init->x - ptl->x, 2) + pow(ptl_init->y - ptl->y, 2) +
+           pow(ptl_init->z - ptl->z, 2)) / t;
+    vx = ptl->vx;
+    vy = ptl->vy;
+    vz = ptl->vz;
+    gama = 1.0 / sqrt(1 - (vx*vx + vy*vy + vz*vz));
+    vx0 = ptl_init->vx;
+    vy0 = ptl_init->vy;
+    vz0 = ptl_init->vz;
+    gama0 = 1.0 / sqrt(1 - (vx0*vx0 + vy0*vy0 + vz0*vz0));
+    *dpp = (pow(gama*vx - gama0*vx0, 2) + pow(gama*vy - gama0*vy0, 2) +
+            pow(gama*vz - gama0*vz0, 2)) / t;
+}
+
+/******************************************************************************
+ * Collect particle diffusion coefficients.
+ *
+ * Input:
+ *  mpi_rank: the rank of current MPI process.
+ *  nsteps_dcoeffs: the total output time steps for the diffusion coefficients
+ *  drr, dpp, duu: the particle diffusion coefficients.
+ *  fname: the filename for output.
+ *
+ ******************************************************************************/
+void collect_diff_coeffs(int mpi_rank, int nsteps_dcoeffs, double *drr,
+        double *dpp, double *duu, char *fname, int *nptl_remain)
+{
+    double *drr_global, *dpp_global, *duu_global;
+    int *nptl_remain_global;
+    FILE *fp;
+    int i;
+    drr_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    dpp_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    duu_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    nptl_remain_global = (int *)calloc(nsteps_dcoeffs, sizeof(int));
+    /* Reduce the spectrum to MPI process 0 */
+    MPI_Reduce(drr, drr_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
+            0, MPI_COMM_WORLD);
+    MPI_Reduce(dpp, dpp_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
+            0, MPI_COMM_WORLD);
+    MPI_Reduce(duu, duu_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
+            0, MPI_COMM_WORLD);
+    MPI_Reduce(nptl_remain, nptl_remain_global, nsteps_dcoeffs, MPI_INT,
+            MPI_SUM, 0, MPI_COMM_WORLD);
+    if (mpi_rank == 0 ) {
+        fp = fopen(fname, "w");
+        for (i=0; i<nsteps_dcoeffs; i++) {
+            fprintf(fp, "%10.4e %10.4e %10.4e %d\n", drr_global[i],
+                    dpp_global[i], duu_global[i], nptl_remain_global[i]);
+        }
+        fclose(fp);
+    }
+    free(drr_global);
+    free(dpp_global);
+    free(duu_global);
+    free(nptl_remain_global);
 }

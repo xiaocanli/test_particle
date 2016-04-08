@@ -1,17 +1,17 @@
 /******************************************************************************
 * This file is part of CHAOTICB.
 * Copyright (C) <2012-2014> <Xiaocan Li> <xl0009@uah.edu>
-* 
+*
 * CHAOTICB is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
 * the Free Software Foundation, either version 3 of the License, or
 * (at your option) any later version.
-* 
+*
 * CHAOTICB is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
-* 
+*
 * You should have received a copy of the GNU General Public License
 * along with CHAOTICB.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
@@ -42,6 +42,7 @@ int main(int argc, char **argv)
     int nptl_tot, bc_flag, charge_sign, nptl_traj_tot;
     double ptemp, pmass, pcharge, charge_mass, vthe;
     int nptl, nbins, nt_out;
+    int is_traj_diagnostic, is_single_vel;
 
     /* ierr = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ipvd); */
     /* ierr = MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &ipvd); */
@@ -58,9 +59,10 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    is_traj_diagnostic = 0;
     read_particle_info(mpi_rank, config_file_name, &nptl_tot, &ptemp,
             &pmass, &pcharge, &charge_sign, &vthe, &charge_mass, &bc_flag,
-            &nptl_traj_tot);
+            &is_traj_diagnostic, &nptl_traj_tot, &is_single_vel);
 
     int *nptl_accumulate = (int *)malloc(sizeof(int)*mpi_size);
     for (int i = 0; i < mpi_size; i++) {
@@ -69,17 +71,19 @@ int main(int argc, char **argv)
     assign_particles(mpi_rank, mpi_size, &nptl_tot, &nptl_traj_tot,
             system_type, &nptl, nptl_accumulate);
 
-    struct particles *ptl;
+    struct particles *ptl, *ptl_init;
     ptl = (struct particles*)malloc(sizeof(struct particles)*nptl);
+    ptl_init = (struct particles*)malloc(sizeof(struct particles)*nptl);
     initialize_partilces(mpi_rank, mpi_size, config_file_name, simul_domain,
-            nptl, vthe, system_type, nptl_accumulate, ptl);
+            nptl, vthe, system_type, nptl_accumulate, ptl, is_single_vel);
+    memcpy(ptl_init, ptl, sizeof(particles));
 
     get_spectrum_info(mpi_rank, config_file_name, &nbins, &nt_out);
 
     /* Number of steps each particle is tracked. */
     int *nsteps_ptl_tracking = (int *)malloc(sizeof(int)*nptl);
 
-    double dt = 1.0E-6;
+    double dt = 2.0E-5;
     calc_energy_spectrum(mpi_rank, nptl, ptl, nbins, nt_out, pmass, bc_flag);
     save_particles_fields(mpi_rank, nptl, ptl, nptl_tot, nptl_accumulate,
             "data/particles_fields_init.h5", system_type);
@@ -91,8 +95,13 @@ int main(int argc, char **argv)
     particles *ptl_time;
     particle_tracking_hybrid(mpi_rank, nptl, dt, nbins, nt_out, bc_flag,
             nsteps_output, pmass, ntraj_accum, tracking_method, traj_diagnose,
-            nsteps_ptl_tracking, ptl, ptl_time);
-    /* trajectory_diagnostics(nptl, dt, ptl); */
+            nsteps_ptl_tracking, ptl, ptl_time, ptl_init);
+    if (is_traj_diagnostic) {
+        trajectory_diagnostics(mpi_rank, mpi_size, nptl, dt, pmass,
+                nptl_traj_tot, system_type, ptl, nptl_accumulate,
+                nsteps_ptl_tracking, nbins, nt_out, bc_flag, tracking_method,
+                ptl_init);
+    }
 
     /* release_memory(ptl); */
 
@@ -109,7 +118,8 @@ int main(int argc, char **argv)
     }
     free(nsteps_ptl_tracking);
     free(ptl);
+    free(ptl_init);
     free(nptl_accumulate);
     ierr = MPI_Finalize();
-	return 0;
+    return 0;
 }

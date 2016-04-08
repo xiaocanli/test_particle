@@ -1,9 +1,11 @@
 ---------------------------- Particle information ----------------------------
-Total number of particles: 1E5
+Total number of particles: 256
 Particle temperature: 1.0
+Single velocity: 1
 Mass: 1.0
 Charge: 1.0
-Number of particles for trajectory diagnostics: 400
+To diagnose particle trajectories?: 0
+Number of particles for trajectory diagnostics: 32
 ------------------------------------------------------------------------------
 
 ----------------------------- Domain information -----------------------------
@@ -17,8 +19,10 @@ zmax = 1.0
 
 --------------------------------- System info --------------------------------
 0: test, 1: wlcs, 2: forcefree 3: MHD+test particle
-Flag for the system to use: 3
-Number of WLCSs: 8
+Flag for the system to use: 1
+Number of WLCSs: 1
+Configuration file name: config_wlcs.dat
+Configuration file name: init8_3l.dat
 ------------------------------------------------------------------------------
 
 ------------------------------ Force-free field ------------------------------
@@ -27,7 +31,7 @@ Normalized B(Gauss): 1.0
 ------------------------------------------------------------------------------
 
 ------------------------------ Particle tracking -----------------------------
-Total tracking time (s): 10.0
+Total tracking time (s): 10
 0 for fixed step, 1 for adaptive
 Tracking method to use: 0
 ------------------------------------------------------------------------------
@@ -43,11 +47,11 @@ If using multiple time slices: 0
 ------------------------------------------------------------------------------
 
 ----------------------------- Boundary conditions ----------------------------
-0: periodic 1: open
-BC for particles: 1
+0: periodic 1: open 2: no boundary
+BC for particles: 2
 ------------------------------------------------------------------------------
 
------------------------------- Check points info ----------------------------- 
+------------------------------ Check points info -----------------------------
 re-run the simulation: 0
 0 for new run. 1 for re-run.
 ------------------------------------------------------------------------------
@@ -56,6 +60,6 @@ re-run the simulation: 0
 nbins: 102
 emin: 1.0E-5
 emax: 1.0E2
-Number of diagnostic time frames: 100
+Number of diagnostic time frames: 10
 If emin and emax in MeV: 1 (0 for Lorentz factor gamma)
 ------------------------------------------------------------------------------

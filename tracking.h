@@ -52,21 +52,25 @@ void SingleStepParticleTrackingOMP(int iptl, int it, double dt, int tid,
         int *iescape_pre, int *iescape_after, int ntraj_offset_local,
         int *ntraj_diagnostics_points, int *nsteps_ptl_tracking,
         double espect_private[][nbins*nt_out], 
-        double espect_escape_private[][nbins*nt_out], particles *ptl_time);
+        double espect_escape_private[][nbins*nt_out], particles *ptl_time,
+        particles *ptl_init, double *drr, double *dpp, double *duu);
 
 void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
         int estep, int nbins, int nt_out, int einterval_t, int traj_diagnose,
         int nsteps_output, double pmass, int *ntraj_accum,
         int *ntraj_diagnostics_points_array, struct particles *ptl,
         int *nsteps_ptl_tracking, double espect_private[][nbins*nt_out], 
-        double espect_escape_private[][nbins*nt_out], particles *ptl_time);
+        double espect_escape_private[][nbins*nt_out], particles *ptl_time,
+        particles *ptl_init, double *drr, double *dpp, double *duu,
+        int *nptl_remain_time, int mpi_rank);
 
 void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
         int traj_diagnose, int nsteps_output, double pmass,
         int *nsteps_ptl_tracking, particles *ptl, int *ntraj_accum,
         double espectrum[][nbins], double espect_tot[][nbins],
         double espect_escape[][nbins], double espect_private[][nbins*nt_out],
-        double espect_escape_private[][nbins*nt_out], particles *ptl_time);
+        double espect_escape_private[][nbins*nt_out], particles *ptl_time,
+        particles *ptl_init, int mpi_rank);
 
 void GatherParticleSpectra(int num_threads, int nbins, int nt_out,
         double espectrum[][nbins], double espect_private[][nbins*nt_out],
@@ -75,4 +79,5 @@ void GatherParticleSpectra(int num_threads, int nbins, int nt_out,
 void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
         int nt_out, int bc_flag, int nsteps_output, double pmass,
         int *ntraj_accum, int tracking_method, int traj_diagnose,
-        int *nsteps_ptl_tracking, particles *ptl, particles *ptl_time);
+        int *nsteps_ptl_tracking, particles *ptl, particles *ptl_time,
+        particles *ptl_init);

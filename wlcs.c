@@ -1,17 +1,17 @@
 /******************************************************************************
 * This file is part of CHAOTICB.
 * Copyright (C) <2012-2014> <Xiaocan Li> <xl0009@uah.edu>
-* 
+*
 * CHAOTICB is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
 * the Free Software Foundation, either version 3 of the License, or
 * (at your option) any later version.
-* 
+*
 * CHAOTICB is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
-* 
+*
 * You should have received a copy of the GNU General Public License
 * along with CHAOTICB.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
@@ -33,14 +33,14 @@ void transform(double *Ax, double *Ay, double *Az, double cos_euler1,
 void reverse_tran(double *Ax, double *Ay, double *Az, double cos_euler1,
         double sin_euler1, double cos_euler2, double sin_euler2);
 void getWireB(double x, double y, double z, int iconf, struct bfields *bmf);
-void getWire_Bessel(double x, double y, double z, int iconf, double t, 
+void getWire_Bessel(double x, double y, double z, int iconf, double t,
         struct emfields *emf);
 void getLoopB(double x, double y, double z, int iconf, struct bfields *bmf);
 void ellint(double k0, double *elle, double *ellf);
 
 /******************************************************************************
  * Read the configuration data of a wire-loop current system (WLCS).
- * Sin and Cos functions are calculated here since they  will be re-used. 
+ * Sin and Cos functions are calculated here since they  will be re-used.
  *
  * Input:
  *  mpi_rank: the rank of current MPI process.
@@ -51,10 +51,13 @@ void ellint(double k0, double *elle, double *ellf);
  ******************************************************************************/
 void read_wlcs(int mpi_rank, char *config_file_name)
 {
-	FILE *fp;
+    FILE *fp;
     double theta, phi, alpha, beta, omega;
     char *buff = (char *)malloc(sizeof(*buff)*LEN_MAX);
+    char *config_fname;
     int i, msg;
+
+    config_fname = (char *)malloc(sizeof(*config_fname)*LEN_MAX);
     fp = fopen(config_file_name, "r");
     while (fgets(buff, LEN_MAX, fp) != NULL) {
         //puts(buff);
@@ -74,101 +77,114 @@ void read_wlcs(int mpi_rank, char *config_file_name)
         }
         exit(1);
     }
+    strcpy(config_fname, "init8_3l.dat");
+    msg = fscanf(fp, "Configuration file name: %s\n", config_fname);
+    if (msg == 1) {
+        if (mpi_rank == 0) {
+            printf("The configuration file name for wlcs: %s\n", config_fname);
+        }
+    } else {
+        if (mpi_rank == 0) {
+            printf("Failed to read the configuration file name for wlcs.\n");
+        }
+        exit(1);
+    }
+
     fclose(fp);
 
     config = (struct wlcs*)malloc(sizeof(struct wlcs)*nwlcs);
 
-	fp = fopen("init8_3l.dat","r");
+    fp = fopen(config_fname, "r");
     fgets(buff, LEN_MAX, fp);
-	for(i = 0; i<nwlcs; i++) {
+    for(i = 0; i<nwlcs; i++) {
         msg = fscanf(fp, "%lf", &(config[i].cur_wr));
         if (msg != 1) {
             printf("Failed to read wire current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &(config[i].x_wr));
+        msg = fscanf(fp, "%lf", &(config[i].x_wr));
         if (msg != 1) {
             printf("Failed to read x position of wire current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &(config[i].y_wr));
+        msg = fscanf(fp, "%lf", &(config[i].y_wr));
         if (msg != 1) {
             printf("Failed to read the y position of wire current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &(config[i].z_wr));
+        msg = fscanf(fp, "%lf", &(config[i].z_wr));
         if (msg != 1) {
             printf("Failed to read the z position of wire current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &theta);
+        msg = fscanf(fp, "%lf", &theta);
         if (msg != 1) {
             printf("Failed to read theta Euler angle of wire current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &phi);
+        msg = fscanf(fp, "%lf", &phi);
         if (msg != 1) {
             printf("Failed to read phi Euler angle of wire current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &(config[i].t0));
+        msg = fscanf(fp, "%lf", &(config[i].t0));
         if (msg != 1) {
             printf("Failed to read t0 of wire current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &(config[i].cur_lp));
+        msg = fscanf(fp, "%lf", &(config[i].cur_lp));
         if (msg != 1) {
             printf("Failed to read the loop current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &(config[i].r_lp));
+        msg = fscanf(fp, "%lf", &(config[i].r_lp));
         if (msg != 1) {
             printf("Failed to read the radius of the loop current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &(config[i].x_lp));
+        msg = fscanf(fp, "%lf", &(config[i].x_lp));
         if (msg != 1) {
             printf("Failed to read the x position of the loop center.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &(config[i].y_lp));
+        msg = fscanf(fp, "%lf", &(config[i].y_lp));
         if (msg != 1) {
             printf("Failed to read the y position of the loop center.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &(config[i].z_lp));
+        msg = fscanf(fp, "%lf", &(config[i].z_lp));
         if (msg != 1) {
             printf("Failed to read the z position of the loop center.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &alpha);
+        msg = fscanf(fp, "%lf", &alpha);
         if (msg != 1) {
             printf("Failed to read alpha Euler angle of the loop current.\n");
             exit(1);
         }
-		msg = fscanf(fp, "%lf", &beta);
+        msg = fscanf(fp, "%lf", &beta);
         if (msg != 1) {
             printf("Failed to read beta Euler angle of the loop current.\n");
             exit(1);
         }
 
         /* avoiding re-calculation for magnetic field */
-		config[i].costheta_wr = cos(theta);
-		config[i].sintheta_wr = sin(theta);
-		config[i].cosphi_wr = cos(phi);
-		config[i].sinphi_wr = sin(phi);
-		config[i].cosalpha_lp = cos(alpha);
-		config[i].sinalpha_lp = sin(alpha);
-		config[i].cosbeta_lp = cos(beta);
-		config[i].sinbeta_lp = sin(beta);
-	}
+        config[i].costheta_wr = cos(theta);
+        config[i].sintheta_wr = sin(theta);
+        config[i].cosphi_wr = cos(phi);
+        config[i].sinphi_wr = sin(phi);
+        config[i].cosalpha_lp = cos(alpha);
+        config[i].sinalpha_lp = sin(alpha);
+        config[i].cosbeta_lp = cos(beta);
+        config[i].sinbeta_lp = sin(beta);
+    }
 
-	msg = fscanf(fp, "%d", &iBessel);
+    msg = fscanf(fp, "%d", &iBessel);
     if (msg != 1) {
         printf("Failed to read iBessel.\n");
         exit(1);
     }
-	msg = fscanf(fp, "%lf", &(omega));
+    msg = fscanf(fp, "%lf", &(omega));
     if (msg != 1) {
         printf("Failed to read omega (frequency of the wire currents).\n");
         exit(1);
@@ -178,13 +194,14 @@ void read_wlcs(int mpi_rank, char *config_file_name)
         config[i].omega = omega;
     }
 
-	fclose(fp);
+    fclose(fp);
 
     if (mpi_rank == 0) {
         // print_config_wlcs();
     }
 
     free(buff);
+    free(config_fname);
 }
 
 /******************************************************************************
@@ -201,24 +218,24 @@ void print_config_wlcs()
 {
     int i;
     for(i = 0; i < nwlcs; i++){
-		printf("%lf ", config[i].cur_wr);
-		printf("%lf ", config[i].x_wr);
-		printf("%lf ", config[i].y_wr);
-		printf("%lf ", config[i].z_wr);
-		printf("%lf ", config[i].sintheta_wr);
-		printf("%lf ", config[i].costheta_wr);
-		printf("%lf ", config[i].sinphi_wr);
-		printf("%lf ", config[i].cosphi_wr);
-		printf("%lf ", config[i].t0);
-		printf("%lf ", config[i].cur_lp);
-		printf("%lf ", config[i].r_lp);
-		printf("%lf ", config[i].x_lp);
-		printf("%lf ", config[i].y_lp);
-		printf("%lf ", config[i].z_lp);
-		printf("%lf ", config[i].sinalpha_lp);
-		printf("%lf ", config[i].cosalpha_lp);
-		printf("%lf ", config[i].sinbeta_lp);
-		printf("%lf ", config[i].cosbeta_lp);
+        printf("%lf ", config[i].cur_wr);
+        printf("%lf ", config[i].x_wr);
+        printf("%lf ", config[i].y_wr);
+        printf("%lf ", config[i].z_wr);
+        printf("%lf ", config[i].sintheta_wr);
+        printf("%lf ", config[i].costheta_wr);
+        printf("%lf ", config[i].sinphi_wr);
+        printf("%lf ", config[i].cosphi_wr);
+        printf("%lf ", config[i].t0);
+        printf("%lf ", config[i].cur_lp);
+        printf("%lf ", config[i].r_lp);
+        printf("%lf ", config[i].x_lp);
+        printf("%lf ", config[i].y_lp);
+        printf("%lf ", config[i].z_lp);
+        printf("%lf ", config[i].sinalpha_lp);
+        printf("%lf ", config[i].cosalpha_lp);
+        printf("%lf ", config[i].sinbeta_lp);
+        printf("%lf ", config[i].cosbeta_lp);
         printf("%lf ", config[i].omega);
         printf("\n");
     }
@@ -236,11 +253,11 @@ void print_config_wlcs()
 void getWire_Bessel(double x, double y, double z, int iconf, double t,
         struct emfields *emf)
 {
-	double xp, yp, zp;
-	double x0, rho, const0;
-	double bj0, bj1, by0, by1; // Bessel functions
-	double wireB, wireE;
-	double phi1, curI, omega;
+    double xp, yp, zp;
+    double x0, rho, const0;
+    double bj0, bj1, by0, by1; // Bessel functions
+    double wireB, wireE;
+    double phi1, curI, omega;
     double t1;
 
     /* printf("x, y, z: %lf %lf %lf %lf\n", x, y, z, t); */
@@ -248,9 +265,9 @@ void getWire_Bessel(double x, double y, double z, int iconf, double t,
     emf->Bx = 0.0; emf->By = 0.0; emf->Bz = 0.0;
     emf->Ex = 0.0; emf->Ey = 0.0; emf->Ez = 0.0;
 
-	xp = x - config[iconf].x_wr;
-	yp = y - config[iconf].y_wr;
-	zp = z - config[iconf].z_wr;
+    xp = x - config[iconf].x_wr;
+    yp = y - config[iconf].y_wr;
+    zp = z - config[iconf].z_wr;
     t1 = config[iconf].t0 + t;
     curI = config[iconf].cur_wr;
     omega = config[iconf].omega;
@@ -258,8 +275,8 @@ void getWire_Bessel(double x, double y, double z, int iconf, double t,
     transform(&xp, &yp, &zp,
             config[iconf].costheta_wr, config[iconf].sintheta_wr,
             config[iconf].cosphi_wr, config[iconf].sinphi_wr);
-	rho = sqrt(xp*xp + yp*yp); 
-    x0 = 2.32E-2 * rho * omega; // page 9
+    rho = sqrt(xp*xp + yp*yp);
+    x0 = omega * rho * L0 / c0;
     // Use single-precision for speed
     /* bj0 = BESSJ0(x0); */
     /* bj1 = BESSJ1(x0); */
@@ -267,44 +284,44 @@ void getWire_Bessel(double x, double y, double z, int iconf, double t,
     /* by1 = BESSY1(x0); */
     bj0 = j0f(x0);
     bj1 = j1f(x0);
-	by0 = y0f(x0);
-	by1 = y1f(x0);
+    by0 = y0f(x0);
+    by1 = y1f(x0);
     /* bj0 = gsl_sf_bessel_J0(x0); */
-	/* by0 = gsl_sf_bessel_Y0(x0); */
+    /* by0 = gsl_sf_bessel_Y0(x0); */
     /* bj1 = gsl_sf_bessel_J1(x0); */
-	/* by1 = gsl_sf_bessel_Y1(x0); */
+    /* by1 = gsl_sf_bessel_Y1(x0); */
 
-	const0 = (curI*I0) / (5.0*rho*L0) * M_PI/2.0;
+    const0 = (curI*I0) / (5.0*rho*L0) * M_PI/2.0;
 
 /* ------------------------------- Bx, By, Bz ------------------------------- */
     wireB = const0 * x0 * (-by1*cos(omega * t1) + bj1 * sin(omega * t1));
 
     if(rho == 0.0){
-		phi1 = M_PI/2.0;
-	}
-	else if(yp >= 0.0) {
-		phi1 = acos(xp/rho) + M_PI/2.0;
-	}
-	else {
-		phi1 = 2.0*M_PI - acos(xp/rho) + M_PI/2.0;
-	}
-		
-	emf->Bx = wireB * cos(phi1);
-	emf->By = wireB * sin(phi1);
-	emf->Bz = 0.0;
-		
-    reverse_tran(&emf->Bx, &emf->By, &emf->Bz, 
-            config[iconf].costheta_wr, config[iconf].sintheta_wr, 
+        phi1 = M_PI/2.0;
+    }
+    else if(yp >= 0.0) {
+        phi1 = acos(xp/rho) + M_PI/2.0;
+    }
+    else {
+        phi1 = 2.0*M_PI - acos(xp/rho) + M_PI/2.0;
+    }
+
+    emf->Bx = wireB * cos(phi1);
+    emf->By = wireB * sin(phi1);
+    emf->Bz = 0.0;
+
+    reverse_tran(&emf->Bx, &emf->By, &emf->Bz,
+            config[iconf].costheta_wr, config[iconf].sintheta_wr,
             config[iconf].cosphi_wr, config[iconf].sinphi_wr);
 
 /* ------------------------------- Ex, Ey, Ez ------------------------------- */
-	wireE = -const0 * x0 * (by0*sin(omega * t1) + bj0*cos(omega * t1));
+    wireE = -const0 * x0 * (by0*sin(omega * t1) + bj0*cos(omega * t1));
 
-	emf->Ex = 0.0;
-	emf->Ey = 0.0;
-	emf->Ez = wireE;
+    emf->Ex = 0.0;
+    emf->Ey = 0.0;
+    emf->Ez = wireE;
 
-    reverse_tran(&emf->Ex, &emf->Ey, &emf->Ez, 
+    reverse_tran(&emf->Ex, &emf->Ey, &emf->Ez,
             config[iconf].costheta_wr, config[iconf].sintheta_wr,
             config[iconf].cosphi_wr, config[iconf].sinphi_wr);
 }
@@ -315,42 +332,43 @@ void getWire_Bessel(double x, double y, double z, int iconf, double t,
  ******************************************************************************/
 void getWireB(double x, double y, double z, int iconf, struct bfields *bmf)
 {
-	double xp, yp, zp;
-	double rho, cos_phi0, phi0;
-	double Bphi, curI;
+    double xp, yp, zp;
+    double rho, cos_phi0, phi0;
+    double Bphi, curI;
 
     bmf->Bx = 0.0; bmf->By = 0.0; bmf->Bz = 0.0; // initilization
-	
+
     xp = x - config[iconf].x_wr;
-	yp = y - config[iconf].y_wr;
-	zp = z - config[iconf].z_wr;
+    yp = y - config[iconf].y_wr;
+    zp = z - config[iconf].z_wr;
     curI = config[iconf].cur_wr;
 
-    transform(&xp, &yp, &zp, 
-            config[iconf].costheta_wr, config[iconf].sintheta_wr, 
+    transform(&xp, &yp, &zp,
+            config[iconf].costheta_wr, config[iconf].sintheta_wr,
             config[iconf].cosphi_wr, config[iconf].sinphi_wr);
-	rho = sqrt(xp*xp + yp*yp); // distance
+    rho = sqrt(xp*xp + yp*yp); // distance
+    if (rho < 0.1) rho = 0.1;
 
-	if(rho == 0.0) {
-		printf("%s\n","=== trying to calculate B at the wire ===");
-		return;
-	}
-	else {
-		cos_phi0 = xp / rho;
-		if(yp >= 0.0)
-			phi0 = acos(cos_phi0);
-		else
-			phi0 = 2.0*M_PI - acos(cos_phi0);
-	}
+    if(rho == 0.0) {
+        printf("%s\n","=== trying to calculate B at the wire ===");
+        return;
+    }
+    else {
+        cos_phi0 = xp / rho;
+        if(yp >= 0.0)
+            phi0 = acos(cos_phi0);
+        else
+            phi0 = 2.0*M_PI - acos(cos_phi0);
+    }
 
-	Bphi = 1.0/5.0 * (curI*I0) / (rho*L0); // phi component
+    Bphi = 1.0/5.0 * (curI*I0) / (rho*L0); // phi component
 
-	bmf->Bx = Bphi * cos(phi0 + M_PI/2.0);
-	bmf->By = Bphi * sin(phi0 + M_PI/2.0);
-	bmf->Bz = 0.0;
+    bmf->Bx = Bphi * cos(phi0 + M_PI/2.0);
+    bmf->By = Bphi * sin(phi0 + M_PI/2.0);
+    bmf->Bz = 0.0;
 
-    reverse_tran(&bmf->Bx, &bmf->By, &bmf->Bz, 
-            config[iconf].costheta_wr, config[iconf].sintheta_wr, 
+    reverse_tran(&bmf->Bx, &bmf->By, &bmf->Bz,
+            config[iconf].costheta_wr, config[iconf].sintheta_wr,
             config[iconf].cosphi_wr, config[iconf].sinphi_wr);
 }
 
@@ -359,17 +377,17 @@ void getWireB(double x, double y, double z, int iconf, struct bfields *bmf)
  ******************************************************************************/
 void getLoopB(double x, double y, double z, int iconf, struct bfields *bmf)
 {
-	double xp, yp, zp, curI, al;
+    double xp, yp, zp, curI, al;
     double cosalpha, sinalpha, cosbeta, sinbeta;
     double Irho, rho_xy, al2, r2, irho1, irho2, Brho, Bz;
-	double k, ellk, elle;
-	
+    double k, ellk, elle;
+
     bmf->Bx = 0.0; bmf->By = 0.0; bmf->Bz = 0.0; // initilization
 
-    /* transformation from different coordinate systems */	
-	xp = (x - config[iconf].x_lp) * L0;
-	yp = (y - config[iconf].y_lp) * L0;
-	zp = (z - config[iconf].z_lp) * L0;
+    /* transformation from different coordinate systems */
+    xp = (x - config[iconf].x_lp) * L0;
+    yp = (y - config[iconf].y_lp) * L0;
+    zp = (z - config[iconf].z_lp) * L0;
     al = config[iconf].r_lp * L0;
     curI = config[iconf].cur_lp * I0;
     cosalpha = config[iconf].cosalpha_lp;
@@ -386,19 +404,19 @@ void getLoopB(double x, double y, double z, int iconf, struct bfields *bmf)
     irho1 = 1 / sqrt((al+rho_xy) * (al+rho_xy) + zp * zp);
     irho2 = 1 / ((al-rho_xy) * (al-rho_xy) + zp * zp);
 
-	k = sqrt(4.0 * al * rho_xy) * irho1;
+    k = sqrt(4.0 * al * rho_xy) * irho1;
     ellint(k, &elle, &ellk);
     Brho = Irho * zp * irho1 * (-ellk + (al2 + r2) * elle * irho2) / rho_xy;
-	if(rho_xy == 0.0) Brho = 0.0;
+    if(rho_xy == 0.0) Brho = 0.0;
 
     Bz = Irho * irho1 * (ellk - (r2 - al2) * elle * irho2);
 
     Brho /= rho_xy;
-	bmf->Bx = Brho * xp;
-	bmf->By = Brho * yp;
-	bmf->Bz = Bz;
-        
-    reverse_tran(&bmf->Bx, &bmf->By, &bmf->Bz, 
+    bmf->Bx = Brho * xp;
+    bmf->By = Brho * yp;
+    bmf->Bz = Bz;
+
+    reverse_tran(&bmf->Bx, &bmf->By, &bmf->Bz,
             cosbeta, sinbeta, cosalpha, sinalpha);
 }
 
@@ -451,8 +469,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[10] = 0.081541118718303215;
             m1 = m - 0.05;
             for(j = 0; j <= 9; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[10] * powj;
@@ -472,8 +490,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[11] = 0.266363809892617521;
             m1 = m - 0.15;
             for(j = 0; j <= 10; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[11] * powj;
@@ -493,8 +511,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[11] = 1.057652872753547036;
             m1 = m - 0.25;
             for(j = 0; j <= 10; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[11] * powj;
@@ -515,8 +533,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[12] = 7.224080007363877411;
             m1 = m - 0.35;
             for(j = 0; j <= 11; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[12] * powj;
@@ -538,8 +556,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[13] = 90.27388602940998849;
             m1 = m - 0.45;
             for(j = 0; j <= 12; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[13] * powj;
@@ -562,8 +580,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[14] = 2536.529755382764488;
             m1 = m - 0.55;
             for(j = 0; j <= 12; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[13] * powj;
@@ -590,8 +608,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[16] = 612757.2711915852774;
             m1 = m - 0.65;
             for(j = 0; j <= 14; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[15] * powj;
@@ -622,8 +640,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[19] = 7208915015.330103756;
             m1 = m - 0.75;
             for(j = 0; j <= 16; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[17] * powj;
@@ -651,8 +669,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[15] = 7515687935.373774627;
             m1 = m - 0.825;
             for(j = 0; j <= 13; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[14] * powj;
@@ -682,8 +700,8 @@ void ellint(double k, double *elle, double *ellf)
             Kj[19] = 37859743397240299.20;
             m1 = m - 0.875;
             for(j = 0; j <= 16; j++) {
-                *ellf += Kj[j] * powj; 
-                *elle += Ej[j] * powj; 
+                *ellf += Kj[j] * powj;
+                *elle += Ej[j] * powj;
                 powj *= m1;
             }
             *ellf += Kj[17] * powj;
@@ -706,9 +724,9 @@ void ellint(double k, double *elle, double *ellf)
             Kj[10] = 0.081541118718303215;
             m1 = m - 0.95;
             for(j = 0; j <= 9; j++) {
-                ellf1 += Kj[j] * powj; 
+                ellf1 += Kj[j] * powj;
                 powj *= m1;
-//                elle1 += Ej[j] * pow(0.95 - m, j); 
+//                elle1 += Ej[j] * pow(0.95 - m, j);
             }
             ellf1 += Kj[10] * powj;
 
@@ -745,7 +763,7 @@ void ellint(double k, double *elle, double *ellf)
             Hj[8] = 0.097247053214705841;
             Hj[9] = 0.090651779381423238;
             Hj[10] = 0.085627517951558365;
-           
+
             powj = 1.0;
             m1 = 0.95 - m;
             for(j = 0; j <= 10; j++) {
@@ -770,33 +788,48 @@ void getemf_wlcs(double x, double y, double z, double t, struct emfields *emf_to
     double B0; // background magnetic field
     struct emfields emf;
     struct bfields bmf;
+    double Bx, By, Bz, Ex, Ey, Ez;
     int i;
-   
+
+    Bx = 0.0;
+    By = 0.0;
+    Bz = 0.0;
+    Ex = 0.0;
+    Ey = 0.0;
+    Ez = 0.0;
     emf.Bx = 0.0; emf.By = 0.0; emf.Bz = 0.0;
     emf.Ex = 0.0; emf.Ey = 0.0; emf.Ez = 0.0;
     bmf.Bx = 0.0; bmf.By = 0.0; bmf.Bz = 0.0;
 
-    B0 = 10.0;
+    B0 = 0.0;
+/* #pragma omp parallel private(bmf, emf) reduction(+ : Bx, By, Bz, Ex, Ey, Ez) */
     for(i = 0; i < nwlcs; i++){
-	    if(iBessel == 0){
-		    getWireB(x, y, z, i, &bmf);
-            emf_tot->Bx += bmf.Bx;
-            emf_tot->By += bmf.By;
-            emf_tot->Bz += bmf.Bz;
+        if(iBessel == 0){
+            getWireB(x, y, z, i, &bmf);
+            Bx += bmf.Bx;
+            By += bmf.By;
+            Bz += bmf.Bz;
         }
-	    else{
-		    getWire_Bessel(x, y, z, i, t, &emf);
-            emf_tot->Bx += emf.Bx; emf_tot->Ex += emf.Ex;
-            emf_tot->By += emf.By; emf_tot->Ey += emf.Ey; 
-            emf_tot->Bz += emf.Bz; emf_tot->Ez += emf.Ez;
+        else{
+            getWire_Bessel(x, y, z, i, t, &emf);
+            Bx += emf.Bx; Ex += emf.Ex;
+            By += emf.By; Ey += emf.Ey;
+            Bz += emf.Bz; Ez += emf.Ez;
         }
 
-	    getLoopB(x, y, z, i, &bmf);
+        getLoopB(x, y, z, i, &bmf);
 
-        emf_tot->Bx += bmf.Bx;
-        emf_tot->By += bmf.By;
-        emf_tot->Bz += bmf.Bz;
+        Bx += bmf.Bx;
+        By += bmf.By;
+        Bz += bmf.Bz;
     }
+
+    emf_tot->Bx = Bx;
+    emf_tot->By = By;
+    emf_tot->Bz = Bz;
+    emf_tot->Ex = Ex;
+    emf_tot->Ey = Ey;
+    emf_tot->Ez = Ez;
 
     emf_tot->Bz += B0;
     /* printf("%lf %lf %f %lf %lf %lf\n", emf_tot->Bx, emf_tot->By, */
@@ -807,34 +840,34 @@ void getemf_wlcs(double x, double y, double z, double t, struct emfields *emf_to
  * Transform coodinates between different reference frames.
  * Only two of three Euler angles are considered for the wire-loop system.
  ******************************************************************************/
-void transform(double *Ax, double *Ay, double *Az, 
-        double cos_euler1, double sin_euler1, 
+void transform(double *Ax, double *Ay, double *Az,
+        double cos_euler1, double sin_euler1,
         double cos_euler2, double sin_euler2)
 {
     double ax1, ay1, az1;
-    
+
     ax1 =  cos_euler2 * (*Ax) + sin_euler2 * (*Ay);
     ay1 = -sin_euler2 * (*Ax) + cos_euler2 * (*Ay);
     az1 = *Az;
 
     *Ax = cos_euler1 * ax1 - sin_euler1 * az1;
     *Ay = ay1;
-    *Az = sin_euler1 * ax1 + cos_euler1 * az1; 
+    *Az = sin_euler1 * ax1 + cos_euler1 * az1;
 }
 
 /******************************************************************************
  * Transform fields between different reference frames. Only two of three Euler
  * angles are considered for the wire-loop system.
  ******************************************************************************/
-void reverse_tran(double *Ax, double *Ay, double *Az, 
-        double cos_euler1, double sin_euler1, 
+void reverse_tran(double *Ax, double *Ay, double *Az,
+        double cos_euler1, double sin_euler1,
         double cos_euler2, double sin_euler2)
 {
     double ax1, ay1, az1;
-    
+
     ax1 = cos_euler1 * (*Ax) + sin_euler1 * (*Az);
     ay1 = *Ay;
-    az1 = -sin_euler1 * (*Ax) + cos_euler1 * (*Az); 
+    az1 = -sin_euler1 * (*Ax) + cos_euler1 * (*Az);
 
     *Ax = cos_euler2 * ax1 - sin_euler2 * ay1;
     *Ay = sin_euler2 * ax1 + cos_euler2 * ay1;

@@ -11,7 +11,7 @@
 
 int read_rerun_flag(char *config_file_name);
 void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
-        double vthe, int system_type, struct particles *ptl);
+        double vthe, int system_type, struct particles *ptl, int is_single_vel);
 
 /******************************************************************************
  * Assign particles to each process.
@@ -104,11 +104,13 @@ void particle_broadcast(int mpi_rank, int mpi_size, int nptl_tot, int *nptl,
  *  vthe: thermal speed of particles.
  *  charge_mass: the ratio of particle charge and mass.
  *  bc_flag: the boundary condition flag.
+ *  is_traj_diagnostic: whether to diagnose particle trajectories.
  *  nptl_traj_tot: number of particles for trajectory diagnostics.
  ******************************************************************************/
 void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
         double *ptemp, double *pmass, double *pcharge, int *charge_sign,
-        double *vthe, double *charge_mass, int *bc_flag, int *nptl_traj_tot)
+        double *vthe, double *charge_mass, int *bc_flag,
+        int *is_traj_diagnostic, int *nptl_traj_tot, int *is_single_vel)
 {
     float np;
     char buff[LEN_MAX];
@@ -131,6 +133,11 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
         printf("Failed to read the particle temperature.\n");
         exit(1);
     }
+    msg = fscanf(fp, "Single velocity: %d\n", is_single_vel);
+    if (msg != 1) {
+        printf("Failed to read the flag for single velocity.\n");
+        exit(1);
+    }
     msg = fscanf(fp, "Mass:%lf\n", pmass);
     if (msg != 1) {
         printf("Failed to read the particle mass.\n");
@@ -142,16 +149,29 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
         exit(1);
     }
 
-    msg = fscanf(fp, "Number of particles for trajectory diagnostics:%d\n",
-            nptl_traj_tot);
+    msg = fscanf(fp, "To diagnose particle trajectories?:%d\n",
+            is_traj_diagnostic);
     if (msg != 1) {
-        printf("Failed to read the number of particles for trajectory diagnostics\n");
+        printf("Failed to read the flag for trajectory diagnostics\n");
         exit(1);
+    }
+
+    if (is_traj_diagnostic) {
+        msg = fscanf(fp, "Number of particles for trajectory diagnostics:%d\n",
+                nptl_traj_tot);
+        if (msg != 1) {
+            printf("Failed to read the number of particles for trajectory diagnostics\n");
+            exit(1);
+        }
     }
 
     *charge_sign = (*pcharge) / fabs(*pcharge);
     *vthe = sqrt((*ptemp) / (*pmass)) * VTHE_NORM;
     *charge_mass = CHARGE_MASS_PROTON * (*pcharge) / (*pmass);
+
+    double ptl_ene, gama;
+    gama = 1.0 / sqrt(1.0 - (*vthe)*(*vthe)/(c0*c0));
+    ptl_ene = (gama - 1.0) * REST_ENE_PROTON;
 
     /* Boundary condition for particles*/
     while (fgets(buff, LEN_MAX, fp) != NULL){
@@ -172,11 +192,15 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
         printf("Mass of particles = %f\n", *pmass);
         printf("Charge of particles = %f\n", *pcharge);
         printf("Particle thermal velocity = %f\n", *vthe);
+        printf("Particle thermal energy = %f\n", ptl_ene);
         if ((*bc_flag) == 0) {
             printf("Using periodic boundary condition for particles\n");
         }
         else if ((*bc_flag) == 1) {
             printf("Using open boundary condition for particles\n");
+        }
+        else if ((*bc_flag) == 2) {
+            printf("No boundary for particles\n");
         }
         else {
             printf("ERROR: Wrong boundary conditions.");
@@ -202,7 +226,7 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
  ******************************************************************************/
 void initialize_partilces(int mpi_rank, int mpi_size, char *config_file_name,
         domain simul_domain, int nptl, double vthe, int system_type,
-        int *nptl_accumulate,  particles *ptl)
+        int *nptl_accumulate,  particles *ptl, int is_single_vel)
 {
     int rerun_flag;
     rerun_flag = read_rerun_flag(config_file_name);
@@ -215,7 +239,8 @@ void initialize_partilces(int mpi_rank, int mpi_size, char *config_file_name,
     }
     if (rerun_flag == 0) {
         /* new run */
-        init_ptl(mpi_rank, mpi_size, simul_domain, nptl, vthe, system_type, ptl);
+        init_ptl(mpi_rank, mpi_size, simul_domain, nptl, vthe, system_type,
+                ptl, is_single_vel);
     } else {
         /* load particles from last run */
         read_particles(mpi_rank, nptl, nptl_accumulate, ptl,
@@ -282,10 +307,10 @@ void gaussian_rand(double *ran1, double *ran2)
  *  ptl: particle structure array.
  ******************************************************************************/
 void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
-        double vthe, int system_type, struct particles *ptl)
+        double vthe, int system_type, struct particles *ptl, int is_single_vel)
 {
     double xmin, xmax, ymin, ymax, zmin, zmax;
-    double ran1, ran2, tmp;
+    double ran1, ran2, tmp, theta, phi;
     int i;
     xmin = simul_domain.xmin;
     xmax = simul_domain.xmax;
@@ -308,7 +333,6 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
             ptl[i].vx = nvthe*(i+1)*tmp / (c0*nptl);
             ptl[i].vy = nvthe*(i+1)*tmp / (c0*nptl);
             ptl[i].vz = 0.0;
-            //printf("%f %f %f\n", ptl[i].vx, ptl[i].vy, ptl[i].vz);
         }
     } 
     else {
@@ -316,15 +340,24 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
             ptl[i].x = (xmax-xmin)*drand48() + xmin;
             ptl[i].y = (ymax-ymin)*drand48() + ymin;
             ptl[i].z = (zmax-zmin)*drand48() + zmin;
-            //printf("%f %f %f\n", ptl[i].x, ptl[i].y, ptl[i].z);
             ptl[i].t = 0.0;
-            gaussian_rand(&ran1, &ran2);
-            ptl[i].vx = ran1*tmp / c0;
-            ptl[i].vy = ran2*tmp / c0;
-            //printf("%f %f \n", ran1, ran2);
-            gaussian_rand(&ran1, &ran2);
-            ptl[i].vz = ran1*tmp / c0;
-            //printf("%f %f %f\n", ptl[i].vx, ptl[i].vy, ptl[i].vz);
+        }
+        if (is_single_vel) {
+            for (i = 0; i < nptl; i++) {
+                theta = drand48() * M_PI;
+                phi = drand48() * M_PI * 2;
+                ptl[i].vx = vthe * sin(theta) * cos(phi) / c0;
+                ptl[i].vy = vthe * sin(theta) * sin(phi) / c0;
+                ptl[i].vz = vthe * cos(theta) / c0;
+            }
+        } else {
+            for (i = 0; i < nptl; i++) {
+                gaussian_rand(&ran1, &ran2);
+                ptl[i].vx = ran1*tmp / c0;
+                ptl[i].vy = ran2*tmp / c0;
+                gaussian_rand(&ran1, &ran2);
+                ptl[i].vz = ran1*tmp / c0;
+            }
         }
     }
 }

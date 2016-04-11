@@ -192,7 +192,7 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
         printf("Mass of particles = %f\n", *pmass);
         printf("Charge of particles = %f\n", *pcharge);
         printf("Particle thermal velocity = %f\n", *vthe);
-        printf("Particle thermal energy = %f\n", ptl_ene);
+        printf("Particle thermal energy = %f keV\n", ptl_ene * 1000);
         if ((*bc_flag) == 0) {
             printf("Using periodic boundary condition for particles\n");
         }
@@ -212,7 +212,7 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
 
 /******************************************************************************
  * Initialize particles either analytically or loading from previous runs.
- * 
+ *
  * Input:
  *  mpi_rank: the rank of current MPI process.
  *  mpi_size: total number of MPI processes.
@@ -250,7 +250,7 @@ void initialize_partilces(int mpi_rank, int mpi_size, char *config_file_name,
 
 /******************************************************************************
  * Read the flag to check if it is a re-run of previous simulation.
- * 
+ *
  * Return:
  *  rerun_flag: 0 for new run. 1 for re-run.
  ******************************************************************************/
@@ -334,7 +334,7 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
             ptl[i].vy = nvthe*(i+1)*tmp / (c0*nptl);
             ptl[i].vz = 0.0;
         }
-    } 
+    }
     else {
         for (i = 0; i < nptl; i++) {
             ptl[i].x = (xmax-xmin)*drand48() + xmin;
@@ -427,9 +427,9 @@ void read_particles(int mpi_rank, int nptl, int *nptl_accumulate,
     }
 
     memspace = H5Screate_simple(rank, count, NULL);
-    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, 
+    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset,
             NULL, count, NULL);
-    H5Dread(dset_ptl, memtype_ptl, memspace, filespace, 
+    H5Dread(dset_ptl, memtype_ptl, memspace, filespace,
             plist_id, ptl);
     H5Sclose(filespace);
 
@@ -454,19 +454,19 @@ void create_particles_ctype(hid_t *memtype, hid_t *filetype)
     //herr_t status;
     /* Create the compound datatype in memory */
     *memtype = H5Tcreate(H5T_COMPOUND, sizeof(particles));
-    H5Tinsert(*memtype, "x", 
+    H5Tinsert(*memtype, "x",
             HOFFSET(particles, x), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "y", 
+    H5Tinsert(*memtype, "y",
             HOFFSET(particles, y), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "z", 
+    H5Tinsert(*memtype, "z",
             HOFFSET(particles, z), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "vx", 
+    H5Tinsert(*memtype, "vx",
             HOFFSET(particles, vx), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "vy", 
+    H5Tinsert(*memtype, "vy",
             HOFFSET(particles, vy), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "vz", 
+    H5Tinsert(*memtype, "vz",
             HOFFSET(particles, vz), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "t", 
+    H5Tinsert(*memtype, "t",
             HOFFSET(particles, t), H5T_NATIVE_DOUBLE);
     /*
      * Create the compound datatype for the file.  Because the standard

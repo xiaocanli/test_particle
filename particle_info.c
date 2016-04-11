@@ -312,12 +312,12 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
     double xmin, xmax, ymin, ymax, zmin, zmax;
     double ran1, ran2, tmp, theta, phi;
     int i;
-    xmin = simul_domain.xmin;
-    xmax = simul_domain.xmax;
-    ymin = simul_domain.ymin;
-    ymax = simul_domain.ymax;
-    zmin = simul_domain.zmin;
-    zmax = simul_domain.zmax;
+    xmin = simul_domain.xmin_ptl;
+    xmax = simul_domain.xmax_ptl;
+    ymin = simul_domain.ymin_ptl;
+    ymax = simul_domain.ymax_ptl;
+    zmin = simul_domain.zmin_ptl;
+    zmax = simul_domain.zmax_ptl;
     tmp = sqrt(2.0) * vthe;
     //printf("Thermal speed: %f\n", vthe);
     srand48((unsigned)time(NULL)+mpi_rank*mpi_size);

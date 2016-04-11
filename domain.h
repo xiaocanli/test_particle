@@ -3,6 +3,9 @@
 
 /* Simulation domain */
 typedef struct domain{
+    double xmin_ptl, xmax_ptl;
+    double ymin_ptl, ymax_ptl;
+    double zmin_ptl, zmax_ptl;
     double xmin, xmax;
     double ymin, ymax;
     double zmin, zmax;

@@ -1,7 +1,7 @@
 ---------------------------- Particle information ----------------------------
-Total number of particles: 256
+Total number of particles: 4096
 Particle temperature: 1.0
-Single velocity: 1
+Single velocity: 0
 Mass: 1.0
 Charge: 1.0
 To diagnose particle trajectories?: 0
@@ -9,20 +9,28 @@ Number of particles for trajectory diagnostics: 32
 ------------------------------------------------------------------------------
 
 ----------------------------- Domain information -----------------------------
+---- particle injection domain -----
+xmin_ptl = 0.0
+xmax_ptl = 2.5
+ymin_ptl = 0.0
+ymax_ptl = 2.5
+zmin_ptl = 0.0
+zmax_ptl = 2.5
+--------- simulation domain --------
 xmin = 0.0
-xmax = 1.0
+xmax = 7.5
 ymin = 0.0
-ymax = 1.0
+ymax = 7.5
 zmin = 0.0
-zmax = 1.0
+zmax = 7.5
 ------------------------------------------------------------------------------
 
 --------------------------------- System info --------------------------------
 0: test, 1: wlcs, 2: forcefree 3: MHD+test particle
 Flag for the system to use: 1
-Number of WLCSs: 1
+Number of WLCSs: 8
+Configuration file name: init8.dat
 Configuration file name: config_wlcs.dat
-Configuration file name: init8_3l.dat
 ------------------------------------------------------------------------------
 
 ------------------------------ Force-free field ------------------------------
@@ -31,7 +39,7 @@ Normalized B(Gauss): 1.0
 ------------------------------------------------------------------------------
 
 ------------------------------ Particle tracking -----------------------------
-Total tracking time (s): 10
+Total tracking time (s): 1.0
 0 for fixed step, 1 for adaptive
 Tracking method to use: 0
 ------------------------------------------------------------------------------

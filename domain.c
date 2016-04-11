@@ -80,7 +80,43 @@ void get_spatial_domain(int mpi_rank, FILE *fp, domain *simul_domain)
     buff = (char *)malloc(sizeof(*buff)*LEN_MAX);
     while (fgets(buff, LEN_MAX, fp) != NULL) {
         //puts(buff);
-        if (strstr(buff, "Domain information") != NULL) {
+        if (strstr(buff, "particle injection domain") != NULL) {
+            break;
+        }
+    }
+    msg = fscanf(fp, "xmin_ptl = %lf\n", &simul_domain->xmin_ptl);
+    if (msg != 1) {
+        printf("Failed to read xmin for particles.\n");
+        exit(1);
+    }
+    msg = fscanf(fp, "xmax_ptl = %lf\n", &simul_domain->xmax_ptl);
+    if (msg != 1) {
+        printf("Failed to read xmax for particles.\n");
+        exit(1);
+    }
+    msg = fscanf(fp, "ymin_ptl = %lf\n", &simul_domain->ymin_ptl);
+    if (msg != 1) {
+        printf("Failed to read ymin for particles.\n");
+        exit(1);
+    }
+    msg = fscanf(fp, "ymax_ptl = %lf\n", &simul_domain->ymax_ptl);
+    if (msg != 1) {
+        printf("Failed to read ymax for particles.\n");
+        exit(1);
+    }
+    msg = fscanf(fp, "zmin_ptl = %lf\n", &simul_domain->zmin_ptl);
+    if (msg != 1) {
+        printf("Failed to read zmin for particles.\n");
+        exit(1);
+    }
+    msg = fscanf(fp, "zmax_ptl = %lf\n", &simul_domain->zmax_ptl);
+    if (msg != 1) {
+        printf("Failed to read zmax for particles.\n");
+        exit(1);
+    }
+    while (fgets(buff, LEN_MAX, fp) != NULL) {
+        //puts(buff);
+        if (strstr(buff, "simulation domain") != NULL) {
             break;
         }
     }
@@ -119,6 +155,13 @@ void get_spatial_domain(int mpi_rank, FILE *fp, domain *simul_domain)
         printf("xmin, xmax = %f %f\n", simul_domain->xmin, simul_domain->xmax);
         printf("ymin, ymax = %f %f\n", simul_domain->ymin, simul_domain->ymax);
         printf("zmin, zmax = %f %f\n", simul_domain->zmin, simul_domain->zmax);
+        printf("=========== Particle Domain ===========\n");
+        printf("xmin_ptl, xmax_ptl = %f %f\n",
+                simul_domain->xmin_ptl, simul_domain->xmax_ptl);
+        printf("ymin_ptl, ymax_ptl = %f %f\n",
+                simul_domain->ymin_ptl, simul_domain->ymax_ptl);
+        printf("zmin_ptl, zmax_ptl = %f %f\n",
+                simul_domain->zmin_ptl, simul_domain->zmax_ptl);
         printf("=========================================\n");
     }
 
@@ -243,13 +286,13 @@ int get_system_type(int mpi_rank, FILE *fp)
 }
 
 /******************************************************************************
- * Read special information for the used system. 
+ * Read special information for the used system.
  *  1. Loop current and wire current information for the wire-loop
  *     current system.
  *  2. Velocity field and force-free field information for force-free field
  *     system.
  *  3. Velocity field and magnetic field from MHD simulation for MHD +
- *     test-particle simulation. 
+ *     test-particle simulation.
  *
  * Input:
  *  mpi_rank: the rank of current MPI process.

@@ -41,6 +41,9 @@ double charge_mass;
 int charge_sign;
 
 void init_spectrum(int nbins, int nt_out, double espectrum [][nbins]);
+inline void get_delta_vec(double *beta, double *delta);
+inline double get_gamma_vec(double *gu);
+inline void cross_product_vec(double *A, double *B, double *C);
 
 /******************************************************************************
  * Set shared variables for current file.
@@ -301,6 +304,8 @@ void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
                 dpp[tstep_dcoeffs] += dpp_single;
 #pragma omp atomic
                 duu[tstep_dcoeffs] += duu_single;
+#pragma omp atomic
+                tstep_dcoeffs++;
             }
             if (iescape_after) {
 #pragma omp atomic
@@ -674,164 +679,160 @@ void time_points(double tott, int iexpo, int nt, int nt_out, double *tps)
  ******************************************************************************/
 void tracking_wirz(struct particles *ptl, double dt)
 {
-    double h, Btot;
-    double vx_minus, vx_plus, vxold;
-    double vy_minus, vy_plus, vyold;
-    double vz_minus, vz_plus, vzold;
-    double deltax_m, deltay_m, deltaz_m;
-    double deltax_new, deltay_new, deltaz_new;
-    double hparax, hparay, hparaz; // prallel unit vector to B
-    double hperpx, hperpy, hperpz; // perpendicular unit vector
-    double hrx, hry, hrz; // radial unit vector
-    double dx_para, dy_para, dz_para, dx_perp, dy_perp, dz_perp, dx_r, dy_r, dz_r;
+    double vminus[3], vplus[3], vold[3];
+    double delta[3], delta_m[3], delta_new[3], hpara[3], hperp[3], hr[3];
+    double dpara[3], dperp[3], dr[3], pre[3], r0[3];
+    double h, Btot, iBtot;
+    double tmp1, tmp2, tmp3, tmp4;
+    int i;
+
     double dtheta, gyroR, omegac; // gyro frequency and Larmor radius
-    double xpre, ypre, zpre; // predicted midpoint
     double vperp; // perpendicular velocity
     double vdothp; // dot product of v and hp
-    double x0, y0, z0, t0;
-    double deltax, deltay, deltaz;
+    double t0;
     double sindtheta, cosdtheta;
-    double gama;
+    double gama, igama;
     struct emfields emf;
 
-    x0 = ptl->x; y0 = ptl->y; z0 = ptl->z; t0 = ptl->t;
-    vxold = ptl->vx; vyold = ptl->vy; vzold = ptl->vz;
-    getdelta(&deltax, &deltay, &deltaz, vxold, vyold, vzold);
-    gama = getgamma(deltax, deltay, deltaz);
-//
+    r0[0] = ptl->x;
+    r0[1] = ptl->y;
+    r0[2] = ptl->z;
+    t0 = ptl->t;
+
+    vold[0] = ptl->vx;
+    vold[1] = ptl->vy;
+    vold[2] = ptl->vz;
+
+    get_delta_vec(vold, delta);
+    gama = get_gamma_vec(delta);
+
     emf.Bx = 0.0; emf.By = 0.0; emf.Bz = 0.0;
     emf.Ex = 0.0; emf.Ey = 0.0; emf.Ez = 0.0;
 
-    get_emf(x0, y0, z0, t0, &emf);
+    get_emf(r0[0], r0[1], r0[2], t0, &emf);
     Btot = sqrt(emf.Bx*emf.Bx + emf.By*emf.By + emf.Bz*emf.Bz);
+    iBtot = 1.0 / Btot;
     h = dt / 2.0;
-//    printf("%19.18e\n", dt);
-//
-// Calculate the first intermidate velocity v_minus by applying the first electric half impulse
-    deltax_m = deltax + charge_mass*h*emf.Ex;
-    deltay_m = deltay + charge_mass*h*emf.Ey;
-    deltaz_m = deltaz + charge_mass*h*emf.Ez;
-//
-//    printf("deltax1 deltay1 deltaz1 %20.19e %20.19e %20.19e\n ", deltax, deltay, deltaz);
-//    printf("deltax_m deltay_m deltaz_m %20.19e %20.19e %20.19e\n ", deltax_m, deltay_m, deltaz_m);
-//
-    gama = getgamma(deltax, deltay, deltaz);
-    vxold = deltax / gama;
-    vyold = deltay / gama;
-    vzold = deltaz / gama;
 
-    gama = getgamma(deltax_m, deltay_m, deltaz_m);
-    vx_minus = deltax_m / gama;
-    vy_minus = deltay_m / gama;
-    vz_minus = deltaz_m / gama;
+    /* Calculate the first intermidate velocity v_minus by applying the */
+    /* first electric half impulse */
+    delta_m[0] = delta[0] + charge_mass*h*emf.Ex;
+    delta_m[1] = delta[1] + charge_mass*h*emf.Ey;
+    delta_m[2] = delta[2] + charge_mass*h*emf.Ez;
 
-// vminus is used to calculate a predicted midpoint
-    hparax = emf.Bx / Btot;
-    hparay = emf.By / Btot;
-    hparaz = emf.Bz / Btot;
-    vdothp = vx_minus*hparax + vy_minus*hparay + vz_minus*hparaz;
-    vperp = modulus(vx_minus-vdothp*hparax, vy_minus-vdothp*hparay,
-                    vz_minus-vdothp*hparaz);
-    hperpx = (vx_minus-vdothp*hparax) / vperp;
-    hperpy = (vy_minus-vdothp*hparay) / vperp;
-    hperpz = (vz_minus-vdothp*hparaz) / vperp;
+    igama = 1.0 / get_gamma_vec(delta);
+    for (i = 0; i < 3; i++) {
+        vold[i] = delta[i] * igama;
+    }
 
-    cross_product(hparax, hparay, hparaz, hperpx, hperpy, hperpz, &hrx, &hry, &hrz);
-    hrx *= charge_sign;
-    hry *= charge_sign;
-    hrz *= charge_sign;
+    gama = get_gamma_vec(delta_m);
+    igama = 1.0 / gama;
+    for (i = 0; i < 3; i++) {
+        vminus[i] = delta_m[i] * igama;
+    }
 
-    gyroR = (1.0/charge_mass)*vperp*gama*c0 / Btot / L0; // Larmor radius
-    omegac = charge_mass*Btot / gama; // gyro frequency
+    /* vminus is used to calculate a predicted midpoint */
+    hpara[0] = emf.Bx * iBtot;
+    hpara[1] = emf.By * iBtot;
+    hpara[2] = emf.Bz * iBtot;
+    vdothp = 0.0;
+    for (i = 0; i < 3; i++) {
+        vdothp += vminus[i] * hpara[i];
+    }
+    vperp = modulus(vminus[0]-vdothp*hpara[0], vminus[1]-vdothp*hpara[1],
+                    vminus[2]-vdothp*hpara[2]);
+    for (i = 0; i < 3; i++) {
+        hperp[i] = (vminus[i]-vdothp*hpara[i]) / vperp;
+    }
+
+    cross_product_vec(hpara, hperp, hr);
+    for (i = 0; i < 3; i++) {
+        hr[i] *= charge_sign;
+    }
+
+    gyroR = vperp * gama * c0 * iBtot * iL0 / charge_mass;
+    omegac = charge_mass * Btot * igama;
     dtheta = omegac * dt;
-    dx_para = h * vdothp * c0 * hparax / L0;
-    dy_para = h * vdothp * c0 * hparay / L0;
-    dz_para = h * vdothp * c0 * hparaz / L0;
-
     sindtheta = sin(dtheta*0.5);
     cosdtheta = cos(dtheta*0.5);
+    tmp1 = h * vdothp * c0 * iL0;
+    tmp2 = gyroR * sindtheta;
+    tmp3 = -gyroR * (1.0-cosdtheta);
+    for (i = 0; i < 3; i++) {
+        dpara[i] = hpara[i] * tmp1;
+        dperp[i] = hperp[i] * tmp2;
+        dr[i] = hr[i] * tmp3;
+        pre[i] = r0[i] + dpara[i] + dperp[i] + dr[i];
+    }
 
-    dx_perp = gyroR * sindtheta * hperpx;
-    dy_perp = gyroR * sindtheta * hperpy;
-    dz_perp = gyroR * sindtheta * hperpz;
-
-    dx_r = -gyroR * (1.0-cosdtheta) * hrx;
-    dy_r = -gyroR * (1.0-cosdtheta) * hry;
-    dz_r = -gyroR * (1.0-cosdtheta) * hrz;
-
-// predicted midpoint
-    xpre = x0 + dx_para + dx_perp + dx_r;
-    ypre = y0 + dy_para + dy_perp + dy_r;
-    zpre = z0 + dz_para + dz_perp + dz_r;
-
-// updata the coodinate using the predicted midpoint
-    get_emf(xpre, ypre, zpre, t0+h, &emf);
+    /* updata the coodinate using the predicted midpoint */
+    get_emf(pre[0], pre[1], pre[2], t0+h, &emf);
     Btot = sqrt(emf.Bx*emf.Bx+emf.By*emf.By+emf.Bz*emf.Bz);
+    iBtot = 1.0 / Btot;
 
-// vminus is used to calculate a predicted midpoint
-    hparax = emf.Bx / Btot;
-    hparay = emf.By / Btot;
-    hparaz = emf.Bz / Btot;
+    /* vminus is used to calculate a predicted midpoint */
+    hpara[0] = emf.Bx * iBtot;
+    hpara[1] = emf.By * iBtot;
+    hpara[2] = emf.Bz * iBtot;
 
-    vdothp = vx_minus*hparax + vy_minus*hparay + vz_minus*hparaz;
-    vperp = modulus(vx_minus-vdothp*hparax, vy_minus-vdothp*hparay,
-                    vz_minus-vdothp*hparaz);
-    hperpx = (vx_minus-vdothp*hparax) / vperp;
-    hperpy = (vy_minus-vdothp*hparay) / vperp;
-    hperpz = (vz_minus-vdothp*hparaz) / vperp;
+    vdothp = 0.0;
+    for (i = 0; i < 3; i++) {
+        vdothp += vminus[i] * hpara[i];
+    }
+    vperp = modulus(vminus[0]-vdothp*hpara[0], vminus[1]-vdothp*hpara[1],
+                    vminus[2]-vdothp*hpara[2]);
+    for (i = 0; i < 3; i++) {
+        hperp[i] = (vminus[i]-vdothp*hpara[i]) / vperp;
+    }
 
-    cross_product(hparax, hparay, hparaz, hperpx, hperpy, hperpz, &hrx, &hry, &hrz);
-    hrx *= charge_sign;
-    hry *= charge_sign;
-    hrz *= charge_sign;
-//    printf("hr %10.9e\n ", hperpx * hrx +  hperpy * hry + hperpz * hrz);
-    omegac = charge_mass * Btot / gama; // gyro frequency
+    cross_product_vec(hpara, hperp, hr);
+    for (i = 0; i < 3; i++) {
+        hr[i] *= charge_sign;
+    }
+
+    omegac = charge_mass * Btot * igama; // gyro frequency
     dtheta = omegac * dt;
 
     sindtheta = sin(dtheta);
     cosdtheta = cos(dtheta);
 
-    vx_plus = hparax*vdothp + vperp*(cosdtheta*hperpx-sindtheta*hrx);
-    vy_plus = hparay*vdothp + vperp*(cosdtheta*hperpy-sindtheta*hry);
-    vz_plus = hparaz*vdothp + vperp*(cosdtheta*hperpz-sindtheta*hrz);
-//
-// update new velocity
-//
-    getdelta(&deltax, &deltay, &deltaz, vx_plus, vy_plus, vz_plus);
-    deltax_new = deltax + charge_mass * h * emf.Ex;
-    deltay_new = deltay + charge_mass * h * emf.Ey;
-    deltaz_new = deltaz + charge_mass * h * emf.Ez;
+    for (i = 0; i < 3; i++) {
+        vplus[i] = hpara[i]*vdothp +
+            vperp*(cosdtheta*hperp[i]-sindtheta*hr[i]);
+    }
 
-    gama = getgamma(deltax_new, deltay_new, deltaz_new);
-    ptl->vx = deltax_new / gama;
-    ptl->vy = deltay_new / gama;
-    ptl->vz = deltaz_new / gama;
+    /* update new velocity */
+    get_delta_vec(vplus, delta);
+    delta_new[0] = delta[0] + charge_mass * h * emf.Ex;
+    delta_new[1] = delta[1] + charge_mass * h * emf.Ey;
+    delta_new[2] = delta[2] + charge_mass * h * emf.Ez;
 
-//    printf("%20.19e %20.19e %20.19e\n ", vxold * vxold + vyold * vyold + vzold *vzold,
-//            vx_minus * vx_minus + vy_minus * vy_minus + vz_minus * vz_minus,
-//            *vx * *vx + *vy * *vy + *vz * *vz);
-//
-// update new position
-//
-    vdothp = vx_plus*hparax + vy_plus*hparay + vz_plus*hparaz;
-    vperp = modulus(vx_plus-vdothp*hparax, vy_plus-vdothp*hparay,
-                    vz_plus-vdothp*hparaz);
-    gyroR = 1.0 / charge_mass * vperp * gama * c0 / L0 / Btot; // Larmor radius
-    dx_para = dt * vdothp * c0 * hparax / L0;
-    dy_para = dt * vdothp * c0 * hparay / L0;
-    dz_para = dt * vdothp * c0 * hparaz / L0;
+    gama = get_gamma_vec(delta_new);
+    igama = 1.0 / gama;
+    ptl->vx = delta_new[0] * igama;
+    ptl->vy = delta_new[1] * igama;
+    ptl->vz = delta_new[2] * igama;
 
-    dx_perp = gyroR * sindtheta * hperpx;
-    dy_perp = gyroR * sindtheta * hperpy;
-    dz_perp = gyroR * sindtheta * hperpz;
+    /* update new position */
+    vdothp = 0.0;
+    for (i = 0; i < 3; i++) {
+        vdothp += vplus[i] * hpara[i];
+    }
+    vperp = modulus(vplus[0]-vdothp*hpara[0], vplus[1]-vdothp*hpara[1],
+                    vplus[2]-vdothp*hpara[2]);
+    gyroR = vperp * gama * c0 * iBtot * iL0 / charge_mass;
+    tmp1 = dt * vdothp * c0 * iL0;
+    tmp2 = gyroR * sindtheta;
+    tmp3 = -gyroR * (1.0-cosdtheta);
+    for (i = 0; i < 3; i++) {
+        dpara[i] = hpara[i] * tmp1;
+        dperp[i] = hperp[i] * tmp2;
+        dr[i] = hr[i] * tmp3;
+    }
 
-    dx_r = -gyroR * (1.0-cosdtheta) * hrx;
-    dy_r = -gyroR * (1.0-cosdtheta) * hry;
-    dz_r = -gyroR * (1.0-cosdtheta) * hrz;
-
-    ptl->x += dx_para + dx_perp + dx_r;
-    ptl->y += dy_para + dy_perp + dy_r;
-    ptl->z += dz_para + dz_perp + dz_r;
+    ptl->x += dpara[0] + dperp[0] + dr[0];
+    ptl->y += dpara[1] + dperp[1] + dr[1];
+    ptl->z += dpara[2] + dperp[2] + dr[2];
     ptl->t += dt;
 }
 
@@ -1005,6 +1006,24 @@ void advance(struct particles *ptl, double dt)
 
 /******************************************************************************
  * Calculate gama * beta. gama is Lorentz factor. Beta is the ratio of velocity
+ * over speed of light. This is the vector version.
+ ******************************************************************************/
+inline void get_delta_vec(double *beta, double *delta)
+{
+    double beta_mag, gama;
+    int i;
+    beta_mag = 0.0;
+    for (i = 0; i < 3; i++) {
+        beta_mag += beta[i] * beta[i];
+    }
+    gama = 1.0 / sqrt(1.0 - beta_mag);
+    for (i = 0; i < 3; i++) {
+        delta[i] = gama * beta[i];
+    }
+}
+
+/******************************************************************************
+ * Calculate gama * beta. gama is Lorentz factor. Beta is the ratio of velocity
  * over speed of light.
  ******************************************************************************/
 void getdelta(double *delta_x, double *delta_y, double *delta_z,
@@ -1019,6 +1038,7 @@ void getdelta(double *delta_x, double *delta_y, double *delta_z,
     *delta_z = gama * beta_z;
 }
 
+
 /******************************************************************************
  * Calculate gama from gama * beta.
  ******************************************************************************/
@@ -1026,10 +1046,17 @@ double getgamma(double dx, double dy, double dz)
 {
     double delta, gamma;
 
-    delta = sqrt(dx*dx + dy*dy + dz*dz);
-    gamma = sqrt(1.0 + delta*delta);
-//    printf("%20.19e\n ", gamma);
+    delta = dx*dx + dy*dy + dz*dz;
+    gamma = sqrt(1.0 + delta);
     return gamma;
+}
+
+/******************************************************************************
+ * Calculate gama from gama * beta. This is the vector version.
+ ******************************************************************************/
+inline double get_gamma_vec(double *gu)
+{
+    return sqrt(1.0 + gu[0]*gu[0] + gu[1]*gu[1] + gu[2]*gu[2]);
 }
 
 /******************************************************************************
@@ -1043,6 +1070,13 @@ void cross_product(double beta_x, double beta_y, double beta_z,
     *Cx = beta_y*Bz - beta_z*By;
     *Cy = beta_z*Bx - beta_x*Bz;
     *Cz = beta_x*By - beta_y*Bx;
+}
+
+inline void cross_product_vec(double *A, double *B, double *C)
+{
+    C[0] = A[1]*B[2] - A[2]*B[1];
+    C[1] = A[2]*B[0] - A[0]*B[2];
+    C[2] = A[0]*B[1] - A[1]*B[0];
 }
 
 double modulus(double x, double y, double z)

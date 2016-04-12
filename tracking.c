@@ -264,7 +264,7 @@ void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
 {
     int ntp, iescape_pre, iescape_after;
     double drr_single, dpp_single, duu_single;
-    int i, j;
+    int i, j, tmp;
 #pragma omp for private(j,ntp,iescape_pre,iescape_after, drr_single,\
         dpp_single, duu_single)
     for (i = 0; i < nptl; i++) {
@@ -284,6 +284,10 @@ void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
             ntraj_diagnostics_points = ntraj_diagnostics_points_array[i];
         }
         tstep_dcoeffs = 0;
+        if (iescape_pre) {
+#pragma omp atomic
+            nptl_remain_time[tstep_dcoeffs]--;
+        }
         for (j=sstep; j<=estep; j++) {
             drr_single = 0.0;
             dpp_single = 0.0;
@@ -307,10 +311,12 @@ void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
 #pragma omp atomic
                 tstep_dcoeffs++;
             }
-            if (iescape_after) {
+            if (iescape_pre && j % tinterval_dcoeffs == 0) {
 #pragma omp atomic
                 nptl_remain_time[tstep_dcoeffs]--;
             }
+            tmp = iescape_after;
+            iescape_pre = tmp; /* Update particle status. */
         }
     }
 }
@@ -378,9 +384,6 @@ void SingleStepParticleTrackingOMP(int iptl, int it, double dt, int tid,
         ptl_energy_fixed(iptl, *ntp, tid, ptl, nbins, nt_out, pmass,
                 espect_escape_private);
     }
-    int tmp;
-    tmp = *iescape_after;
-    *iescape_pre = tmp; /* Update particle status. */
     if (it % einterval_t == 0) {
         if (*iescape_after == 0) {
             /* Particles haven't escaped from simulation box. */

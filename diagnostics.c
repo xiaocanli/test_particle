@@ -189,14 +189,14 @@ void ptl_energy_adaptive(double *ydense, int t1, int t2, int tid, int nbins,
 void ptl_energy_fixed(int ptl_id, int it, int tid, struct particles *ptl,
         int nbins, int nt_out, double pmass, double espectrum[][nbins*nt_out])
 {
-    double beta, gama, ene, rest_ene;
+    double beta2, gama, ene, rest_ene;
     int ibin;
 
     rest_ene = REST_ENE_PROTON * pmass;
-    beta = sqrt(ptl[ptl_id].vx*ptl[ptl_id].vx +
+    beta2 = ptl[ptl_id].vx*ptl[ptl_id].vx +
             ptl[ptl_id].vy*ptl[ptl_id].vy +
-            ptl[ptl_id].vz*ptl[ptl_id].vz);
-    gama = 1.0 / sqrt(1.0-beta*beta);
+            ptl[ptl_id].vz*ptl[ptl_id].vz;
+    gama = 1.0 / sqrt(1.0-beta2);
     ene = (gama-1.0) * rest_ene;
     ibin = floor((log10(ene)-logemin)/logde);
     if (ibin < 0) {
@@ -241,7 +241,7 @@ void collect_espectrum(int mpi_rank, int nbins, int nt_out,
         fp = fopen(fname, "a");
         for (i=0; i<nt_out; i++) {
             for (j=0; j<nbins; j++) {
-                espectrum[i][j] = espect_tot[i][j] / einterval[j];
+                espectrum[i][j] = espect_tot[i][j];
                 fprintf(fp, "%20.14e ", espectrum[i][j]);
             }
             fprintf(fp, "\n");

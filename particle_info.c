@@ -171,7 +171,7 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
 
     double ptl_ene, gama;
     gama = 1.0 / sqrt(1.0 - (*vthe)*(*vthe)/(c0*c0));
-    ptl_ene = (gama - 1.0) * REST_ENE_PROTON;
+    ptl_ene = (gama - 1.0) * REST_ENE_PROTON * (*pmass);
 
     /* Boundary condition for particles*/
     while (fgets(buff, LEN_MAX, fp) != NULL){

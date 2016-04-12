@@ -99,12 +99,12 @@ void calc_energy_spectrum(int mpi_rank, int nptl, struct particles *ptl,
     if (mpi_rank == 0 ) {
         fp = fopen("data/espectrum.dat", "w");
         for (i = 0; i < nbins; i++) {
-            fprintf(fp, "%20.14e ", ebins[i]);
+            fprintf(fp, "%10.4e ", ebins[i]);
         }
         fprintf(fp, "\n");
         for (i = 0; i < nbins; i++) {
             espectrum[i] = espect_tot[i] / einterval[i];
-            fprintf(fp, "%20.14e ", espectrum[i]);
+            fprintf(fp, "%10.4e ", espectrum[i]);
         }
         fprintf(fp, "\n");
         fclose(fp);
@@ -113,11 +113,11 @@ void calc_energy_spectrum(int mpi_rank, int nptl, struct particles *ptl,
         if (bc_flag == 1) {
             fp = fopen("data/espect_escape.dat", "w");
             for (i = 0; i < nbins; i++) {
-                fprintf(fp, "%20.14e ", ebins[i]);
+                fprintf(fp, "%10.4e ", ebins[i]);
             }
             fprintf(fp, "\n");
             for (i = 0; i < nbins; i++) {
-                fprintf(fp, "%20.14e ", 0.0);
+                fprintf(fp, "%10.4e ", 0.0);
             }
             fprintf(fp, "\n");
             fclose(fp);
@@ -242,7 +242,7 @@ void collect_espectrum(int mpi_rank, int nbins, int nt_out,
         for (i=0; i<nt_out; i++) {
             for (j=0; j<nbins; j++) {
                 espectrum[i][j] = espect_tot[i][j];
-                fprintf(fp, "%20.14e ", espectrum[i][j]);
+                fprintf(fp, "%10.4e ", espectrum[i][j]);
             }
             fprintf(fp, "\n");
         }

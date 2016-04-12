@@ -241,7 +241,7 @@ void collect_espectrum(int mpi_rank, int nbins, int nt_out,
         fp = fopen(fname, "a");
         for (i=0; i<nt_out; i++) {
             for (j=0; j<nbins; j++) {
-                espectrum[i][j] = espect_tot[i][j];
+                espectrum[i][j] = espect_tot[i][j] / einterval[j];
                 fprintf(fp, "%10.4e ", espectrum[i][j]);
             }
             fprintf(fp, "\n");

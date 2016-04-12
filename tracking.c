@@ -311,7 +311,7 @@ void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
 #pragma omp atomic
                 tstep_dcoeffs++;
             }
-            if (iescape_pre && j % tinterval_dcoeffs == 0) {
+            if (iescape_after && j % tinterval_dcoeffs == 0) {
 #pragma omp atomic
                 nptl_remain_time[tstep_dcoeffs]--;
             }
@@ -410,7 +410,7 @@ void GatherParticleSpectra(int num_threads, int nbins, int nt_out,
         double espect_escape[][nbins], double espect_escape_private[][nbins*nt_out])
 {
     int it, j, k;
-    #pragma omp for private(j,k)
+#pragma omp for private(j,k)
     for (it=0; it<nt_out; it++) {
         for (j=0; j<nbins; j++) {
             for (k=0; k<num_threads; k++) {
@@ -626,8 +626,9 @@ void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
                 "data/espectrum.dat");
         if (bc_flag == 1) {
             /* Only for open boundary conditions. */
-            collect_espectrum(mpi_rank, nbins, nt_out, espectrum, espect_tot,
-                    "data/espect_escape.dat");
+            init_spectrum(nt_out, nbins, espect_tot);
+            collect_espectrum(mpi_rank, nbins, nt_out, espect_escape,
+                    espect_tot, "data/espect_escape.dat");
         }
     }
 }

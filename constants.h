@@ -10,6 +10,7 @@
 /* Spatial normalization */
 #ifndef L0
 #define L0 6.96E8
+#define iL0 1/L0
 #endif
 
 /* sqrt(kT0/m_p), T0 = 1E6 K, CGS unit */

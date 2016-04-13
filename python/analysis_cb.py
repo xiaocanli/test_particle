@@ -168,36 +168,80 @@ def emf_wire():
     # plt.show()
 
 
-def plot_spectrum():
+def plot_spectrum(**kwargs):
     """
     Plotting the energy spectrum.
     """
-    f = open('../data/espectrum.dat', 'r')
-    data = np.genfromtxt(f, delimiter='')
-    f.close
-    dimx,dimy = data.shape
-    ene_log = data[0,:];
+    species = kwargs['species'] if 'species' in kwargs else 'proton'
+    normI = kwargs['normI'] if 'normI' in kwargs else '025'
+    omega = kwargs['omega'] if 'omega' in kwargs else '0001'
+    fname_in = '../data/espectrum_' + species + '_' + normI + \
+               'I0_' + omega + 'Hz.dat'
+    fname_out = '../data/espect_escape_' + species + '_' + normI + \
+               'I0_' + omega + 'Hz.dat'
+    fin = open(fname_in, 'r')
+    fout = open(fname_out, 'r')
+    data_in = np.genfromtxt(fin, delimiter='')
+    data_out = np.genfromtxt(fout, delimiter='')
+    fin.close
+    fout.close
+    dimx, dimy = data_in.shape
+    ene_log = data_in[0,:]
+    ns = kwargs['nstep'] if 'nstep' in kwargs else 20
+    nt = kwargs['nt'] if 'nt' in kwargs else dimx - 1
+    tseries = np.zeros(ns+1)
+    dt = nt**(1.0/ns)
+    tseries[0] = 1
+    for i in range(1, ns+1):
+        tseries[i] = tseries[i-1] * dt
+    tseries.astype(int)
     fig = plt.figure(figsize=[7, 5])
-    width = 0.69
+    width = 0.73
     height = 0.8
-    xs = 0.16
+    xs = 0.13
     ys = 0.95 - height
     ax = fig.add_axes([xs, ys, width, height])
-    for j in range(1, dimx-1):
-        color = plt.cm.jet(j/float(dimx), 1)
-        ax.loglog(ene_log, data[j,:], color=color, linewidth=2)
-    pindex = -1;
-    fpower_log = ene_log**pindex;
-    ax.loglog(ene_log, fpower_log*1E2, color='k', linestyle='--', linewidth=2)
-    
-    ax.set_xlim([1E-5, 10]);
-    ax.set_ylim([1E1, 1E8]);
-    ax.set_xlabel('Energy (MeV)', fontdict=font)
-    ax.set_ylabel('Flux (#/MeV)', fontdict=font)
+    norm = mpl.colors.Normalize(vmin=0, vmax=ns)
+    c_m = mpl.cm.jet
+    s_m = mpl.cm.ScalarMappable(cmap=c_m, norm=norm)
+    s_m.set_array([])
+    for i in range(ns+1):
+        ct = int(tseries[i])
+        color = c_m(i/float(ns+1), 1)
+        ax.loglog(ene_log, data_in[ct,:], color=color, linewidth=2)
+    espect_out = np.sum(data_out[1:,:], axis=0)
+    ax.loglog(ene_log, espect_out, color='k',
+            linestyle='-', linewidth=3, label='Escape spectrum')
+    xs += width + 0.02
+    cax = fig.add_axes([xs, ys, 0.03, height])
+    cbar = plt.colorbar(s_m, cax=cax)
+    cbar.ax.tick_params(labelsize=16)
+    lname = str(ns) + r'$\log t / \log t_\text{max}$'
+    cbar.ax.set_ylabel(lname, fontsize=20)
+    pindex = kwargs['pindex'] if 'pindex' in kwargs else -0.8
+    pnorm = kwargs['pnorm'] if 'pnorm' in kwargs else 1E7
+    fpower_log = ene_log**pindex
+    ax.loglog(ene_log, fpower_log*pnorm, color='k', linestyle='--', linewidth=2)
+    text_pos = kwargs['text_pos'] if 'text_pos' in kwargs else [0.95, 0.75]
+    tname = r'$\sim E^{' + str(pindex) + '}$'
+    ax.text(text_pos[0], text_pos[1], tname, color='k', fontsize=20,
+            bbox=dict(facecolor='none', alpha=1.0,
+                      edgecolor='none', pad=10.0),
+            horizontalalignment='right', verticalalignment='bottom',
+            transform = ax.transAxes)
+    leg = ax.legend(loc=3, prop={'size':20}, ncol=1,
+            shadow=False, fancybox=False, frameon=False)
+
+    xlims = kwargs['xlims'] if 'xlims' in kwargs else [1E-5, 10]
+    ylims = kwargs['ylims'] if 'ylims' in kwargs else [1E1, 1E10]
+    ax.set_xlim(xlims)
+    ax.set_ylim(ylims)
+    ax.set_xlabel('$E$ [MeV]', fontdict=font, fontsize=20)
+    ax.set_ylabel('$f(E)$ [MeV$^{-1}$]', fontdict=font, fontsize=20)
     ax.tick_params(labelsize=16)
-    # plt.grid(True)
-    # plt.savefig('ene_spectrum.eps')
-    
+    fname = 'espect_' + species + '_' + normI + '_' + omega + '.eps'
+    plt.savefig('img_spectrum/' + fname)
+
     plt.show()
 
 
@@ -222,9 +266,9 @@ def plot_diff_coeffs():
     ax = fig.add_axes([xs, ys, width, height])
     ax.plot(drr/nptl, color='r', linewidth=2)
     ax.set_ylim([0.02, 0.025])
-    
+
     ax.tick_params(labelsize=16)
-    
+
     plt.show()
 
 
@@ -251,9 +295,9 @@ def plot_diff_coeffs_multi():
 
         ax.plot(drr/nptl, linewidth=2)
     ax.set_ylim([0.003, 0.009])
-    
+
     ax.tick_params(labelsize=16)
-    
+
     plt.show()
 
 
@@ -298,9 +342,9 @@ def plot_trajectory(run_name):
     file.close
 
 if __name__ == "__main__":
-    mag_field_loop()
+    # mag_field_loop()
     # emf_wire()
-    # plot_spectrum()
+    plot_spectrum()
     # plot_diff_coeffs()
     # plot_diff_coeffs_multi()
     # run_names = ['wire', 'loop_1MK', 'loop_10MK', '100MK', '1wlcs_symmetric',

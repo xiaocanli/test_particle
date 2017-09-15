@@ -1,7 +1,8 @@
-cbmpi
-*.o
-eneb
-test_particle
 data/
 outfile
+*.o
 *.map
+*.optrpt
+cbmpi
+eneb
+test_particle

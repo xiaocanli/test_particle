@@ -1,71 +1,51 @@
-# Edit the following variables as needed
-#HDF_INSTALL = $(HOME)/hdf5
+# project name (generate executable with this name)
+TARGET   = test_particle
 #
-CC = mpicc
-# define any compile-time flags
-CFLAGS = -Werror -Wall -g -pedantic -std=gnu99 -Wno-long-long
-OPTIMIZATION = -fopenmp -O2 -vec-report2 -xAVX -Wno-strict-aliasing -fomit-frame-pointer
-# CFLAGS = -Wall -g -pedantic -std=gnu99 -Wno-long-long
-# OPTIMIZATION = -fopenmp -O2 -ffast-math -Wno-strict-aliasing -fomit-frame-pointer
+CC     = mpicc
+LD     = mpicc
+AR     = ar clq
+RANLIB = ranlib
+RM 	   = rm -f
+CFLAGS = -Werror -Wall -g -pedantic -std=gnu99 -Wno-long-long -fopenmp
+OPTIMIZATION = -O2 -qopt-report-phase=vec -fp-model precise -xAVX -Wno-strict-aliasing -fomit-frame-pointer
 
-INCLUDES = -I$(HDF5_INCL)
+# Specify HDF5_ROOT
+HDF5_ROOT = /usr/projects/hpcsoft/toss3/grizzly/hdf5/1.8.16_intel-17.0.1_openmpi-1.10.5
+HDF5_INC = $(HDF5_ROOT)/include
+HDF5_LIB = -L$(HDF5_ROOT)/lib -lhdf5_hl -lhdf5
+LIBS = $(HDF5_LIB) -ldl
 LFLAGS =
-HDF5LIB = -L$(HDF5_ROOT)/lib -lhdf5
-# LIBS = $(HDF5LIB) -ldl -lm -lgsl -lgslcblas
-LIBS = $(HDF5LIB) -ldl -lm
+
+CFLAGS += -I$(HDF5_INC)
 
 # define the C source files
-# SRCS_CHAOTICB = cbmpi.c diagnostics.c force_free.c quick_sort.c StepperBS.c \
-# 	   tracking.c wlcs.c domain.c
-SRCS = domain.c wlcs.c particle_info.c diagnostics.c emfields.c \
-	   quick_sort.c tracking.c force_free.c data_io.c velocity_field.c \
-	   interpolation.c magnetic_field.c bessel.c
-SRCS_CHAOTICB = main.c $(SRCS)
-SRCS_MAGNETIC = magnetic_ene.c $(SRCS)
+SRCDIR   = src
+INCDIR	 = include
+OBJDIR   = obj
+BINDIR   = bin
 
-# define the C object files
-#
-# This uses Suffix Replacement within a macro:
-#   $(name:string1=string2)
-#         For each word in 'name' replace 'string1' with 'string2'
-# Below we are replacing the suffix .c of all words in the macro SRCS
-# with the .o suffix
-#
-OBJS_CHAOTICB = $(SRCS_CHAOTICB:.c=.o)
+CFLAGS += -I./$(INCDIR)
 
-OBJS_MAGNETIC = $(SRCS_MAGNETIC:.c=.o)
+SOURCES  := $(wildcard $(SRCDIR)/*.c)
+INCLUDES := $(wildcard $(INCDIR)/*.h)
+OBJECTS  := $(addprefix $(OBJDIR)/,$(notdir $(SOURCES:.c=.o)))
 
-# define the executable file
-CHAOTICB = test_particle
-MAGNETIC_ENE = eneb
-
-#
-.PHONY: depend clean
-
-all:	$(CHAOTICB) $(MAGNETIC_ENE)
+all:	$(BINDIR)/$(TARGET)
 	@echo  Programs are successfully compiled!
 
-chaoticb:	$(CHAOTICB)
-	@echo  $(CHAOTICB) are successfully compiled!
+$(BINDIR)/$(TARGET): $(OBJECTS)
+	$(LD) $(CFLAGS) $(OPTIMIZATION) $(LFLAGS) $(LIBS) -o $@ $^
+	@echo $(BINDIR)/$(TARGET) are successfully compiled!
 
-magnetic_ene:	$(MAGNETIC_ENE)
-	@echo  $(MAGNETIC_ENE) is successfully compiled!
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	$(CC) $(CFLAGS) $(OPTIMIZATION) -c $< -o $@
 
-$(CHAOTICB): $(OBJS_CHAOTICB)
-	$(CC) $(CFLAGS) $(OPTIMIZATION) $(INCLUDES) -o $(CHAOTICB) \
-		$(OBJS_CHAOTICB) $(LFLAGS) $(LIBS)
-
-$(MAGNETIC_ENE): $(OBJS_MAGNETIC)
-	$(CC) $(CFLAGS) $(OPTIMIZATION) $(INCLUDES) -o $(MAGNETIC_ENE) \
-		$(OBJS_MAGNETIC) $(LFLAGS) $(LIBS)
-
-.c.o:
-	$(CC) $(CFLAGS) $(OPTIMIZATION) $(INCLUDES) -c $<  -o $@
+.PHONY: depend clean
 
 clean:
-	$(RM) *.o *~ $(MAIN) $(TRAJ)
+	$(RM) $(OBJECTS) $(OBJDIR)/*.optrpt *~ $(BINDIR)/$(TARGET)
 
-depend: $(SRCS)
+depend: $(SOURCES)
 	makedepend $(INCLUDES) $^
 
 # DO NOT DELETE THIS LINE -- make depend needs it

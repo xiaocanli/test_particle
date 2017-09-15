@@ -17,6 +17,7 @@ import struct
 import collections
 import palettable
 import h5py
+from evtk.hl import pointsToVTK 
 
 colors = palettable.colorbrewer.qualitative.Set1_9.mpl_colors
 
@@ -153,7 +154,8 @@ def emf_wire():
         ax.tick_params(labelsize=20)
         leg = ax.legend(loc=4, prop={'size':24}, ncol=1,
                 shadow=False, fancybox=False, frameon=False)
-        tname = r"$\omega t = $" + r"{ %.2f}" % omega_t
+        # tname = r"$\omega t = $" + r"{ %.2f}" % omega_t
+        tname = r"$\omega t = \pi/2$"
         ax.text(0.95, 0.85, tname, color='k', fontsize=24,
                 bbox=dict(facecolor='none', alpha=1.0,
                           edgecolor='none', pad=10.0),
@@ -163,9 +165,28 @@ def emf_wire():
         fig.savefig(fname, dpi=300)
         fname = 'img/eb_wire_' + str(i).zfill(3) + '.eps'
         fig.savefig(fname)
-        plt.close()
+        # plt.close()
 
-    # plt.show()
+    plt.show()
+
+
+def get_nptl(ene, f):
+    """Get particle number from energy spectrum.
+    """
+    nbins, = ene.shape
+    emin = ene[0] * 2.0
+    emax = ene[-1]
+    logemin = math.log10(emin)
+    logemax = math.log10(emax)
+    logde = (logemax - logemin) / (nbins - 2.0)
+    einterval = np.zeros(nbins)
+    einterval[0] = emin
+    for i in range(1, nbins - 1):
+        einterval[i] = 10**logemin * (10**(logde*i)-10**(logde*(i-1)))
+    einterval[nbins-1] = 10**logemin * (10**(logde*nbins) -
+            10**(logde*(nbins-1)))
+
+    return np.sum(f*einterval)
 
 
 def plot_spectrum(**kwargs):
@@ -183,8 +204,8 @@ def plot_spectrum(**kwargs):
     fout = open(fname_out, 'r')
     data_in = np.genfromtxt(fin, delimiter='')
     data_out = np.genfromtxt(fout, delimiter='')
-    fin.close
-    fout.close
+    fin.close()
+    fout.close()
     dimx, dimy = data_in.shape
     ene_log = data_in[0,:]
     ns = kwargs['nstep'] if 'nstep' in kwargs else 20
@@ -202,13 +223,21 @@ def plot_spectrum(**kwargs):
     ys = 0.95 - height
     ax = fig.add_axes([xs, ys, width, height])
     norm = mpl.colors.Normalize(vmin=0, vmax=ns)
-    c_m = mpl.cm.jet
+    c_m = mpl.cm.rainbow
     s_m = mpl.cm.ScalarMappable(cmap=c_m, norm=norm)
     s_m.set_array([])
     for i in range(ns+1):
         ct = int(tseries[i])
         color = c_m(i/float(ns+1), 1)
         ax.loglog(ene_log, data_in[ct,:], color=color, linewidth=2)
+    n0 = get_nptl(ene_log, data_in[1, :])
+    n1 = get_nptl(ene_log, data_in[-1, :])
+    print "Fraction of particles remains: ", n1 / n0
+    fname_in = '../data/diff_coeffs_' + species + '_' + normI + \
+               'I0_' + omega + 'Hz.dat'
+    data = np.genfromtxt(fname_in, delimiter='')
+    nptl = data[:, -1]
+    fraction = r'%.1f' % (nptl[-1] * 100.0 / nptl[0] - 0.1)
     espect_out = np.sum(data_out[1:,:], axis=0)
     ax.loglog(ene_log, espect_out, color='k',
             linestyle='-', linewidth=3, label='Escape spectrum')
@@ -229,6 +258,12 @@ def plot_spectrum(**kwargs):
                       edgecolor='none', pad=10.0),
             horizontalalignment='right', verticalalignment='bottom',
             transform = ax.transAxes)
+    tname1 = r'$F_\text{in} = ' + fraction + '\%$'
+    ax.text(0.98, 0.9, tname1, color='k', fontsize=20,
+            bbox=dict(facecolor='none', alpha=1.0,
+                      edgecolor='none', pad=10.0),
+            horizontalalignment='right', verticalalignment='bottom',
+            transform = ax.transAxes)
     leg = ax.legend(loc=3, prop={'size':20}, ncol=1,
             shadow=False, fancybox=False, frameon=False)
 
@@ -242,7 +277,8 @@ def plot_spectrum(**kwargs):
     fname = 'espect_' + species + '_' + normI + '_' + omega + '.eps'
     plt.savefig('img_spectrum/' + fname)
 
-    plt.show()
+    plt.close()
+    # plt.show()
 
 
 def plot_diff_coeffs():
@@ -306,21 +342,23 @@ def plot_trajectory(run_name):
     """
     Plotting particle trajectories
     """
-    fname = '../data/particle_diagnostics_' + run_name + '.h5'
+    # fname = '../data/particle_diagnostics_' + run_name + '.h5'
+    fname = '../data/particle_diagnostics.h5'
     file = h5py.File(fname,'r')
     group = file['/particles_fields']
     dset_ptl = group['particles']
     sz, = dset_ptl.shape
-    print sz
-    ntraj = 100000
-    nptl = sz / ntraj
+    # ntraj = 12500
+    # nptl = sz / ntraj
+    nptl = 128
+    ntraj = sz / nptl
     print("Total number of particles: ", nptl)
     if not os.path.isdir('img_traj/'):
         os.makedirs('img_traj/')
     odir = 'img_traj/' + run_name + '/'
     if not os.path.isdir(odir):
         os.makedirs(odir)
-    for iptl in range(nptl):
+    for iptl in range(10):
         px = np.array(dset_ptl['x'][iptl*ntraj+1:(iptl+1)*ntraj-1])
         py = np.array(dset_ptl['y'][iptl*ntraj+1:(iptl+1)*ntraj-1])
         pz = np.array(dset_ptl['z'][iptl*ntraj+1:(iptl+1)*ntraj-1])
@@ -335,19 +373,180 @@ def plot_trajectory(run_name):
         zLabel = ax.set_zlabel('$z$', fontsize=24)
         ax.tick_params(labelsize=16)
         plt.tight_layout()
-        fname = odir + 'ptl' + str(iptl).zfill(3) + '_traj.png'
-        plt.savefig(fname)
-        plt.close()
-        # plt.show()
+        # fname = odir + 'ptl' + str(iptl).zfill(3) + '_traj.png'
+        # plt.savefig(fname)
+        # plt.close()
+        plt.show()
     file.close
+
+
+def plot_spectrum_multi():
+    """Plot multiple particle energy spectrum
+    """
+    plot_spectrum()
+    kwargs = {'species': 'proton', 'normI': '125', 'omega': '0001',
+              'pindex': -0.8, 'pnorm': 1E7}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '25', 'omega': '0001',
+            'pindex': -0.7, 'pnorm': 1E7, 'xlims': [1E-5, 20]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '250', 'omega': '0001',
+              'pindex': -0.55, 'pnorm': 1E7, 'xlims': [1E-5, 30]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '2500', 'omega': '0001',
+              'pindex': -0.55, 'pnorm': 1E7, 'xlims': [1E-5, 30]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '25000', 'omega': '0001',
+              'pindex': -0.55, 'pnorm': 1E7, 'xlims': [1E-5, 30]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '025', 'omega': '001',
+              'pindex': -0.7, 'pnorm': 1E7, 'xlims': [1E-5, 1E2],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '125', 'omega': '001',
+              'pindex': -0.5, 'pnorm': 1E7, 'xlims': [1E-5, 1E2],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '25', 'omega': '001',
+              'pindex': -0.5, 'pnorm': 1E7, 'xlims': [1E-5, 100],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '250', 'omega': '001',
+              'pindex': -0.5, 'pnorm': 1E7, 'xlims': [1E-5, 200],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '2500', 'omega': '001',
+              'pindex': -0.5, 'pnorm': 1E7, 'xlims': [1E-5, 300],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '25000', 'omega': '001',
+              'pindex': -0.5, 'pnorm': 1E7, 'xlims': [1E-5, 100],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '025', 'omega': '01',
+              'pindex': -0.7, 'pnorm': 1E7, 'xlims': [1E-5, 1E2],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '125', 'omega': '01',
+              'pindex': -0.7, 'pnorm': 1E7, 'xlims': [1E-5, 1E2],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '25', 'omega': '01',
+              'pindex': -0.7, 'pnorm': 1E6, 'xlims': [1E-5, 100],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '250', 'omega': '01',
+              'pindex': -0.7, 'pnorm': 1E7, 'xlims': [1E-5, 200],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '2500', 'omega': '01',
+              'pindex': -0.7, 'pnorm': 1E7, 'xlims': [1E-5, 300],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'proton', 'normI': '25000', 'omega': '01',
+              'pindex': -0.7, 'pnorm': 1E7, 'xlims': [1E-5, 100],
+              'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'electron', 'normI': '025', 'omega': '0001',
+              'pindex': -0.75, 'pnorm': 1E5, 'xlims': [1E-5, 3E0],
+              'ylims': [10, 2E8], 'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'electron', 'normI': '125', 'omega': '0001',
+              'pindex': -0.7, 'pnorm': 2E5, 'xlims': [1E-5, 5E0],
+              'ylims': [10, 2E8], 'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'electron', 'normI': '25', 'omega': '0001',
+              'pindex': -0.7, 'pnorm': 2E5, 'xlims': [1E-5, 5E0],
+              'ylims': [10, 2E8], 'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'electron', 'normI': '250', 'omega': '0001',
+              'pindex': -0.6, 'pnorm': 2E5, 'xlims': [1E-5, 5E0],
+              'ylims': [10, 2E8], 'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'electron', 'normI': '2500', 'omega': '0001',
+              'pindex': -0.6, 'pnorm': 2E5, 'xlims': [1E-5, 5E0],
+              'ylims': [10, 2E8], 'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'electron', 'normI': '025', 'omega': '001',
+              'pindex': -0.75, 'pnorm': 1E5, 'xlims': [1E-5, 3E0],
+              'ylims': [10, 2E8], 'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'electron', 'normI': '125', 'omega': '001',
+              'pindex': -0.7, 'pnorm': 2E5, 'xlims': [1E-5, 5E0],
+              'ylims': [10, 2E8], 'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+    kwargs = {'species': 'electron', 'normI': '25', 'omega': '001',
+              'pindex': -0.7, 'pnorm': 2E5, 'xlims': [1E-5, 5E0],
+              'ylims': [10, 2E8], 'text_pos': [0.95, 0.65]}
+    plot_spectrum(**kwargs)
+
+
+def particle_trajectory_h5part():
+    """Transfer particle trajectory to H5Part format
+    """
+    fname = '../data/particle_diagnostics.h5'
+    fh = h5py.File(fname,'r')
+    group = fh['/particles_fields']
+    dset_ptl = group['particles']
+    sz, = dset_ptl.shape
+    nptl = 128
+    ntraj = sz / nptl
+    print("Total number of particles: ", nptl)
+    x = np.array(dset_ptl['x'])
+    y = np.array(dset_ptl['y'])
+    z = np.array(dset_ptl['z'])
+    q = np.arange(nptl)
+    fname_out = '../data/particle_diagnostics.h5part'
+    with h5py.File(fname_out, 'w') as fh_out:
+        stride = 81
+        for ct in range(1, ntraj, stride):
+            print ct
+            grp = fh_out.create_group('Step#'+str((ct-1)/stride))
+            px = x[ct::ntraj]
+            py = y[ct::ntraj]
+            pz = z[ct::ntraj]
+            grp.create_dataset('q', (nptl, ), data=q)
+            grp.create_dataset('X', (nptl, ), data=px)
+            grp.create_dataset('Y', (nptl, ), data=py)
+            grp.create_dataset('Z', (nptl, ), data=pz)
+    fh.close
+
+
+def particle_trajectory_vtk():
+    """Transfer particle trajectory to vtk format
+    """
+    fname = '../data/particle_diagnostics.h5'
+    fh = h5py.File(fname,'r')
+    group = fh['/particles_fields']
+    dset_ptl = group['particles']
+    sz, = dset_ptl.shape
+    nptl = 128
+    ntraj = sz / nptl
+    print("Total number of particles: ", nptl)
+    x = np.array(dset_ptl['x'])
+    y = np.array(dset_ptl['y'])
+    z = np.array(dset_ptl['z'])
+    stride = 9
+    q = np.arange(ntraj / stride)
+    fname_out = '../data/particle_diagnostics.vtu'
+    for iptl in range(nptl):
+        px = np.array(x[iptl*ntraj+1:(iptl+1)*ntraj-1:stride])
+        py = np.array(y[iptl*ntraj+1:(iptl+1)*ntraj-1:stride])
+        pz = np.array(z[iptl*ntraj+1:(iptl+1)*ntraj-1:stride])
+        fname = "./points" + str(iptl)
+        pointsToVTK(fname, px, py, pz, data = {"q" : q})
+    fh.close
+
 
 if __name__ == "__main__":
     # mag_field_loop()
     # emf_wire()
-    plot_spectrum()
+    # plot_spectrum_multi()
     # plot_diff_coeffs()
     # plot_diff_coeffs_multi()
     # run_names = ['wire', 'loop_1MK', 'loop_10MK', '100MK', '1wlcs_symmetric',
     #         '1wlcs_IL1_y001', '1wlcs_IL1_y01', '8wlcs']
     # for rname in run_names:
-    #     plot_trajectory(rname)
+    # plot_trajectory('')
+    particle_trajectory_h5part()
+    # particle_trajectory_vtk()

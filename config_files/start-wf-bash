@@ -1,0 +1,26 @@
+#!/bin/bash
+#MSUB -l walltime=16:00:00
+#MSUB -l nodes=16:ppn=2
+#MSUB -N Rogers
+#MSUB -j oe
+#MSUB -o outfile
+#MSUB -m abe
+
+
+# Now run the script as this group - so all data files will belong
+
+#  Shell commands
+date
+echo '*** Staring Parallel Job ***'
+# module load gcc
+module load intel/14.0.4
+module load openmpi
+module load friendly-testing
+module load hdf5-parallel/1.8.13
+
+export OMP_NUM_THREADS=8
+./test_particle.sh
+
+date
+echo '*** All Done ***'
+# 

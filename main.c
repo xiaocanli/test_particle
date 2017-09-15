@@ -83,7 +83,10 @@ int main(int argc, char **argv)
     /* Number of steps each particle is tracked. */
     int *nsteps_ptl_tracking = (int *)malloc(sizeof(int)*nptl);
 
-    double dt = 2.0E-5;
+    double dt;
+    dt = 1E-6 * pmass;
+    adjust_dt_normI(&dt);
+    if (mpi_rank == 0) printf("%10.4e\n", dt);
     calc_energy_spectrum(mpi_rank, nptl, ptl, nbins, nt_out, pmass, bc_flag);
     save_particles_fields(mpi_rank, nptl, ptl, nptl_tot, nptl_accumulate,
             "data/particles_fields_init.h5", system_type);

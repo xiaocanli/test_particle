@@ -1,11 +1,11 @@
 ---------------------------- Particle information ----------------------------
-Total number of particles: 4096
-Particle temperature: 1.0
-Single velocity: 0
+Total number of particles: 128
+Particle temperature: 1000000.0
+Single velocity: 1
 Mass: 1.0
 Charge: 1.0
-To diagnose particle trajectories?: 0
-Number of particles for trajectory diagnostics: 32
+To diagnose particle trajectories?: 1
+Number of particles for trajectory diagnostics: 128
 ------------------------------------------------------------------------------
 
 ----------------------------- Domain information -----------------------------
@@ -28,9 +28,9 @@ zmax = 7.5
 --------------------------------- System info --------------------------------
 0: test, 1: wlcs, 2: forcefree 3: MHD+test particle
 Flag for the system to use: 1
-Number of WLCSs: 8
-Configuration file name: init8.dat
+Number of WLCSs: 1
 Configuration file name: config_wlcs.dat
+Configuration file name: init8.dat
 ------------------------------------------------------------------------------
 
 ------------------------------ Force-free field ------------------------------
@@ -39,7 +39,7 @@ Normalized B(Gauss): 1.0
 ------------------------------------------------------------------------------
 
 ------------------------------ Particle tracking -----------------------------
-Total tracking time (s): 1.0
+Total tracking time (s): 10.0
 0 for fixed step, 1 for adaptive
 Tracking method to use: 0
 ------------------------------------------------------------------------------
@@ -65,9 +65,9 @@ re-run the simulation: 0
 ------------------------------------------------------------------------------
 
 ----------------------------- Energy spectrum info ---------------------------
-nbins: 102
+nbins: 162
 emin: 1.0E-5
-emax: 1.0E2
-Number of diagnostic time frames: 10
+emax: 1.0E3
+Number of diagnostic time frames: 1000
 If emin and emax in MeV: 1 (0 for Lorentz factor gamma)
 ------------------------------------------------------------------------------

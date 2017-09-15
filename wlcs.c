@@ -26,6 +26,7 @@
 
 struct wlcs *config;
 int nwlcs, iBessel;
+double normI;
 
 void print_config_wlcs();
 void transform(double *Ax, double *Ay, double *Az, double cos_euler1,
@@ -190,14 +191,30 @@ void read_wlcs(int mpi_rank, char *config_file_name)
         exit(1);
     }
 
+    /* Get the current normalization relative to I0 */
+    normI = 1.0; // default is I0
+    msg = fscanf(fp, "%lf", &(normI));
+    if (msg != 1) {
+        printf("Failed to read normalization current.\n");
+        exit(1);
+    } else {
+        if (mpi_rank == 0) {
+            printf("Normalization current is %10.4e.\n", normI);
+        }
+    }
+    printf("normaI is %f.\n", normI);
+
     for(i = 0; i < nwlcs; i++) {
         config[i].omega = omega;
+        config[i].cur_wr *= normI;
+        config[i].cur_lp *= normI;
     }
+
 
     fclose(fp);
 
     if (mpi_rank == 0) {
-        // print_config_wlcs();
+        /* print_config_wlcs(); */
     }
 
     free(buff);
@@ -240,6 +257,17 @@ void print_config_wlcs()
         printf("\n");
     }
 }
+
+/******************************************************************************
+ * Adjust the particle tracking time interval dt by the current amplitude,
+ * because the magnetic field is proportional to I, and the particle gyromation
+ * period is inverse proportional to the magnetic field.
+ ******************************************************************************/
+void adjust_dt_normI(double *dt) {
+    *dt /= normI;
+    *dt /= config[0].omega / 0.001;
+}
+
 
 /******************************************************************************
  * Calculate the magnetic field of one straight wire in time-dependent condition.

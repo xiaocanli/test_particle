@@ -1,6 +1,6 @@
 #!/bin/tcsh
-#MSUB -l walltime=1:00:00
-#MSUB -l nodes=2:ppn=2
+#MSUB -l walltime=16:00:00
+#MSUB -l nodes=16:ppn=2
 #MSUB -N Rogers
 #MSUB -j oe
 #MSUB -o outfile
@@ -21,7 +21,7 @@ module load hdf5-parallel/1.8.13
 setenv OMP_NUM_THREADS 8
 #mpirun -np 2048 --mca mpi_paffinity_alone 0 ./sforce_free_mpert.cxx.op -tpp=2 restart restart1/restart >& outfile2
 #mpirun -np 2048 --mca mpi_paffinity_alone 0 ./sigma.cxx.op -tpp=2
-mpirun -np 4 -bysocket -bind-to-socket ./test_particle
+mpirun -np 32 -npernode 2 -bysocket -bind-to-socket ./test_particle
 
 # restart restart0/restart
 date

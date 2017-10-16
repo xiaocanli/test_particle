@@ -10,6 +10,7 @@
 #include "velocity_field.h"
 #include "force_free.h"
 #include "magnetic_field.h"
+#include "electric_field.h"
 #include "emfields.h"
 #include "tracking.h"
 
@@ -21,6 +22,8 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
         domain simul_domain);
 void get_fields_dims(int mpi_rank, char *config_file_name, domain simul_domain,
         grids *simul_grid, double *v0_field, double *B0_field, int *multi_tframe);
+void get_fields_file_path(int mpi_rank, char *config_file_name, char *file_path);
+int get_fields_time_frame(int mpi_rank, char *config_file_name);
 
 /******************************************************************************
  * Read simulation domain dimensions, flag for the systems to use.
@@ -275,6 +278,11 @@ int get_system_type(int mpi_rank, FILE *fp)
                 printf("The system is a MHD + test particle system.\n");
             }
             break;
+        case 4:
+            if (mpi_rank == 0) {
+                printf("The system is a PIC fields + test particle system.\n");
+            }
+            break;
         default:
             if (mpi_rank == 0) {
                 printf("Error system option: [%d]\n", system_type);
@@ -303,9 +311,10 @@ int get_system_type(int mpi_rank, FILE *fp)
 int get_system_info(int mpi_rank, int system_type, char *config_file_name,
         domain simul_domain)
 {
-    int multi_tframe;
+    int multi_tframe, initial_time_frame;
     grids simul_grid;
     double v0_field, B0_field;
+    char file_path[LEN_MAX];
     set_variables_emfields(system_type);
     switch (system_type) {
         case 0:
@@ -346,10 +355,28 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
                     multi_tframe, sizeof(float));
             set_variables_tracking(&simul_grid, &simul_domain, system_type,
                     multi_tframe);
+            get_fields_file_path(mpi_rank, config_file_name, file_path);
+            initial_time_frame = get_fields_time_frame(mpi_rank, config_file_name);
             initialize_vfield();
             initialize_bfield();
-            read_vfields_binary("/scratch/deng/for_xiaocan/", 16, sizeof(float));
-            read_bfields_binary("/scratch/deng/for_xiaocan/", 16, sizeof(float));
+            read_vfields_binary(file_path, initial_time_frame, sizeof(float));
+            read_bfields_binary(file_path, initial_time_frame, sizeof(float));
+            break;
+        case 4:
+            get_fields_dims(mpi_rank, config_file_name, simul_domain,
+                    &simul_grid, &v0_field, &B0_field, &multi_tframe);
+            set_variables_efield(&simul_grid, &simul_domain, v0_field * B0_field,
+                    multi_tframe, sizeof(float));
+            set_variables_bfield(&simul_grid, &simul_domain, B0_field,
+                    multi_tframe, sizeof(float));
+            set_variables_tracking(&simul_grid, &simul_domain, system_type,
+                    multi_tframe);
+            get_fields_file_path(mpi_rank, config_file_name, file_path);
+            initial_time_frame = get_fields_time_frame(mpi_rank, config_file_name);
+            initialize_efield();
+            initialize_bfield();
+            read_efields_binary(file_path, initial_time_frame, sizeof(float));
+            read_bfields_binary(file_path, initial_time_frame, sizeof(float));
             break;
         default:
             if (mpi_rank == 0) {
@@ -358,6 +385,65 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
             return -1;
     }
     return 0;
+}
+
+/******************************************************************************
+ * Get the file path of the velocity field and magnetic field data
+ *
+ * Input:
+ *  mpi_rank: the rank of current MPI process.
+ *  config_file_name: the configuration filename.
+ *
+ * Output:
+ *  file_path: file path that includes the velocity and magnetic fields
+ ******************************************************************************/
+void get_fields_file_path(int mpi_rank, char *config_file_name, char *file_path)
+{
+    FILE *fp;
+    char buff[LEN_MAX];
+    int msg;
+    fp = fopen(config_file_name, "r");
+    while (fgets(buff, LEN_MAX, fp) != NULL){
+        if (strstr(buff, "If using multiple time slices")) {
+            break;
+        }
+    };
+    msg = fscanf(fp, "File path: %s\n", file_path);
+    if (msg != 1) {
+        printf("Failed to get file path for the fields.\n");
+        exit(1);
+    }
+    fclose(fp);
+}
+
+/******************************************************************************
+ * Get the time frame of the velocity field and magnetic field data
+ *
+ * Input:
+ *  mpi_rank: the rank of current MPI process.
+ *  config_file_name: the configuration filename.
+ *
+ * Return:
+ *  tframe: time frame of the velocity and magnetic fields
+ ******************************************************************************/
+int get_fields_time_frame(int mpi_rank, char *config_file_name)
+{
+    FILE *fp;
+    char buff[LEN_MAX];
+    int msg, tframe;
+    fp = fopen(config_file_name, "r");
+    while (fgets(buff, LEN_MAX, fp) != NULL){
+        if (strstr(buff, "File path: ")) {
+            break;
+        }
+    };
+    msg = fscanf(fp, "Initial time frame: %d\n", &tframe);
+    if (msg != 1) {
+        printf("Failed to get the initial time frame for the fields.\n");
+        exit(1);
+    }
+    fclose(fp);
+    return tframe;
 }
 
 /******************************************************************************

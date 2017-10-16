@@ -41,7 +41,7 @@ double modulus(double x, double y, double z);
 /*         int traj_diagnose, struct particles *ptl); */
 
 void set_variables_tracking(grids *sgrid, domain *sdomain, int stype, int mt);
-void set_ptl_params_tracking(int pbc, double cmass, int csign);
+void set_ptl_params_tracking(int pbc, double qm);
 
 void cross_product(double beta_x, double beta_y, double beta_z, double Bx,
         double By, double Bz, double* Cx, double* Cy, double* Cz);
@@ -81,3 +81,6 @@ void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
         int *ntraj_accum, int tracking_method, int traj_diagnose,
         int *nsteps_ptl_tracking, particles *ptl, particles *ptl_time,
         particles *ptl_init);
+
+double get_tracking_time_interval(int mpi_rank, char *config_file_name,
+        double pmass);

@@ -11,6 +11,7 @@
 #include "force_free.h"
 #include "velocity_field.h"
 #include "magnetic_field.h"
+#include "electric_field.h"
 
 int system_type;
 
@@ -20,6 +21,7 @@ int system_type;
  * system_type = 1: wire-loop current system case.
  * system_type = 2: force-free magnetic field case.
  * system_type = 3: MHD + test particle.
+ * system_type = 4: PIC fields + test particle.
  *
  * Input:
  *  x, y, z, t: spatial positions and time.
@@ -48,6 +50,9 @@ void get_emf(double x, double y, double z, double t, struct emfields *emf)
         case 3:
             getemf_mhd_test_particle(x, y, z, t, emf);
             break;
+        case 4:
+            getemf_pic_test_particle(x, y, z, t, emf);
+            break;
         default:
             printf("ERROR: wrong system type.\n");
             exit(1);
@@ -68,13 +73,37 @@ void getemf_mhd_test_particle(double x, double y, double z, double t,
     float vx, vy, vz;
     float Bx, By, Bz;
     get_float_velocity_at_point(x, y, z, t, &vx, &vy, &vz);
-    get_float_velocity_at_point(x, y, z, t, &Bx, &By, &Bz);
+    get_float_bfield_at_point(x, y, z, t, &Bx, &By, &Bz);
     emf->Bx = Bx;
     emf->By = By;
     emf->Bz = Bz;
     emf->Ex = emf->By * vz - emf->Bz * vy;
     emf->Ey = emf->Bz * vx - emf->Bx * vz;
     emf->Ez = emf->Bx * vy - emf->By * vx;
+}
+
+/******************************************************************************
+ * Get electric and magnetic fields for PIC fields + test particle system.
+ *
+ * Input:
+ * x, y, z, t: spatial positions and time.
+ *
+ * Output:
+ * emf: electromagnetic fields at (x, y, z, t)
+ ******************************************************************************/
+void getemf_pic_test_particle(double x, double y, double z, double t,
+        struct emfields *emf)
+{
+    float Ex, Ey, Ez;
+    float Bx, By, Bz;
+    get_float_efield_at_point(x, y, z, t, &Ex, &Ey, &Ez);
+    get_float_bfield_at_point(x, y, z, t, &Bx, &By, &Bz);
+    emf->Ex = Ex;
+    emf->Ey = Ey;
+    emf->Ez = Ez;
+    emf->Bx = Bx;
+    emf->By = By;
+    emf->Bz = Bz;
 }
 
 /******************************************************************************

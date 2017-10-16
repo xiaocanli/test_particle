@@ -38,12 +38,14 @@ int system_type;
 int multi_tframe;
 int bc_flag;
 double charge_mass;
-int charge_sign;
 
 void init_spectrum(int nbins, int nt_out, double espectrum [][nbins]);
-inline void get_delta_vec(double *beta, double *delta);
-inline double get_gamma_vec(double *gu);
-inline void cross_product_vec(double *A, double *B, double *C);
+/* inline void get_delta_vec(double *beta, double *delta); */
+/* inline double get_gamma_vec(double *gu); */
+/* inline void cross_product_vec(double *A, double *B, double *C); */
+void get_delta_vec(double *beta, double *delta);
+double get_gamma_vec(double *gu);
+void cross_product_vec(double *A, double *B, double *C);
 
 /******************************************************************************
  * Set shared variables for current file.
@@ -56,11 +58,10 @@ void set_variables_tracking(grids *sgrid, domain *sdomain, int stype, int mt)
     multi_tframe = mt;
 }
 
-void set_ptl_params_tracking(int pbc, double cmass, int csign)
+void set_ptl_params_tracking(int pbc, double qm)
 {
     bc_flag = pbc;
-    charge_mass = cmass;
-    charge_sign = csign;
+    charge_mass = qm;
 }
 
 /******************************************************************************
@@ -98,7 +99,7 @@ void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
     printf("Energy output time interval %d\n", einterval_t);
     /* Diffusion coefficients */
     nsteps_dcoeffs = estep / tinterval_dcoeffs + 1;
-    printf("%d\n", nsteps_dcoeffs);
+    printf("Time step for diffusion coefficients: %d\n", nsteps_dcoeffs);
     drr = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     dpp = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     duu = (double *)calloc(nsteps_dcoeffs, sizeof(double));
@@ -381,13 +382,13 @@ void SingleStepParticleTrackingOMP(int iptl, int it, double dt, int tid,
     }
     if (*iescape_pre == 0 && *iescape_after == 1 && bc_flag == 1) {
         /* Only do this when particles escape and open boundary. */
-        ptl_energy_fixed(iptl, *ntp, tid, ptl, nbins, nt_out, pmass,
+        ptl_energy_fixed(iptl, *ntp, tid, ptl, nbins, nt_out,
                 espect_escape_private);
     }
     if (it % einterval_t == 0) {
         if (*iescape_after == 0) {
             /* Particles haven't escaped from simulation box. */
-            ptl_energy_fixed(iptl, *ntp, tid, ptl, nbins, nt_out, pmass,
+            ptl_energy_fixed(iptl, *ntp, tid, ptl, nbins, nt_out,
                     espect_private);
         }
         (*ntp)++;
@@ -589,8 +590,7 @@ void init_spectrum(int nbins, int nt_out, double espectrum [][nbins])
  *
  * Input & output:
  *  nsteps_ptl_tracking: total number of tracking steps for each particle.
- *  ptl_time: particle trajectory points changing with time for all particles.
- *            They are saved aligned in memory.
+ *  ptl_time: particle trajectory points changing with time
  ******************************************************************************/
 void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
         int nt_out, int bc_flag, int nsteps_output, double pmass,
@@ -599,8 +599,7 @@ void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
         particles *ptl_init)
 {
     double espectrum[nt_out][nbins], espect_tot[nt_out][nbins];
-    /* Energy spectrum for escaping particles. */
-    double espect_escape[nt_out][nbins];
+    double espect_escape[nt_out][nbins];  // Energy spectrum for escaping particles.
     init_spectrum(nt_out, nbins, espectrum);
     init_spectrum(nt_out, nbins, espect_tot);
     init_spectrum(nt_out, nbins, espect_escape);
@@ -686,13 +685,13 @@ void tracking_wirz(struct particles *ptl, double dt)
     double vminus[3], vplus[3], vold[3];
     double delta[3], delta_m[3], delta_new[3], hpara[3], hperp[3], hr[3];
     double dpara[3], dperp[3], dr[3], pre[3], r0[3];
-    double h, Btot, iBtot;
+    double dth, Btot, iBtot;
     double tmp1, tmp2, tmp3, tmp4;
     int i;
 
-    double dtheta, gyroR, omegac; // gyro frequency and Larmor radius
-    double vperp; // perpendicular velocity
-    double vdothp; // dot product of v and hp
+    double dtheta, gyroR, omegac;   // gyro frequency and Larmor radius
+    double vperp;                   // perpendicular velocity
+    double vdothp;                  // dot product of v and hp
     double t0;
     double sindtheta, cosdtheta;
     double gama, igama;
@@ -703,11 +702,10 @@ void tracking_wirz(struct particles *ptl, double dt)
     r0[2] = ptl->z;
     t0 = ptl->t;
 
-    vold[0] = ptl->vx;
-    vold[1] = ptl->vy;
-    vold[2] = ptl->vz;
+    delta[0] = ptl->ux;
+    delta[1] = ptl->uy;
+    delta[2] = ptl->uz;
 
-    get_delta_vec(vold, delta);
     gama = get_gamma_vec(delta);
 
     emf.Bx = 0.0; emf.By = 0.0; emf.Bz = 0.0;
@@ -716,18 +714,13 @@ void tracking_wirz(struct particles *ptl, double dt)
     get_emf(r0[0], r0[1], r0[2], t0, &emf);
     Btot = sqrt(emf.Bx*emf.Bx + emf.By*emf.By + emf.Bz*emf.Bz);
     iBtot = 1.0 / Btot;
-    h = dt / 2.0;
+    dth = dt * 0.5;
 
-    /* Calculate the first intermidate velocity v_minus by applying the */
-    /* first electric half impulse */
-    delta_m[0] = delta[0] + charge_mass*h*emf.Ex;
-    delta_m[1] = delta[1] + charge_mass*h*emf.Ey;
-    delta_m[2] = delta[2] + charge_mass*h*emf.Ez;
-
-    igama = 1.0 / get_gamma_vec(delta);
-    for (i = 0; i < 3; i++) {
-        vold[i] = delta[i] * igama;
-    }
+    // Calculate the first intermidate velocity v_minus by applying the
+    // first electric half impulse
+    delta_m[0] = delta[0] + charge_mass * dth * emf.Ex;
+    delta_m[1] = delta[1] + charge_mass * dth * emf.Ey;
+    delta_m[2] = delta[2] + charge_mass * dth * emf.Ez;
 
     gama = get_gamma_vec(delta_m);
     igama = 1.0 / gama;
@@ -735,7 +728,7 @@ void tracking_wirz(struct particles *ptl, double dt)
         vminus[i] = delta_m[i] * igama;
     }
 
-    /* vminus is used to calculate a predicted midpoint */
+    // vminus is used to calculate a predicted midpoint
     hpara[0] = emf.Bx * iBtot;
     hpara[1] = emf.By * iBtot;
     hpara[2] = emf.Bz * iBtot;
@@ -750,16 +743,13 @@ void tracking_wirz(struct particles *ptl, double dt)
     }
 
     cross_product_vec(hpara, hperp, hr);
-    for (i = 0; i < 3; i++) {
-        hr[i] *= charge_sign;
-    }
 
-    gyroR = vperp * gama * c0 * iBtot * iL0 / charge_mass;
+    gyroR = vperp * gama * c0_norm * iBtot / charge_mass;
     omegac = charge_mass * Btot * igama;
     dtheta = omegac * dt;
     sindtheta = sin(dtheta*0.5);
     cosdtheta = cos(dtheta*0.5);
-    tmp1 = h * vdothp * c0 * iL0;
+    tmp1 = dth * vdothp * c0_norm;
     tmp2 = gyroR * sindtheta;
     tmp3 = -gyroR * (1.0-cosdtheta);
     for (i = 0; i < 3; i++) {
@@ -770,7 +760,7 @@ void tracking_wirz(struct particles *ptl, double dt)
     }
 
     /* updata the coodinate using the predicted midpoint */
-    get_emf(pre[0], pre[1], pre[2], t0+h, &emf);
+    get_emf(pre[0], pre[1], pre[2], t0+dth, &emf);
     Btot = sqrt(emf.Bx*emf.Bx+emf.By*emf.By+emf.Bz*emf.Bz);
     iBtot = 1.0 / Btot;
 
@@ -790,9 +780,6 @@ void tracking_wirz(struct particles *ptl, double dt)
     }
 
     cross_product_vec(hpara, hperp, hr);
-    for (i = 0; i < 3; i++) {
-        hr[i] *= charge_sign;
-    }
 
     omegac = charge_mass * Btot * igama; // gyro frequency
     dtheta = omegac * dt;
@@ -807,15 +794,13 @@ void tracking_wirz(struct particles *ptl, double dt)
 
     /* update new velocity */
     get_delta_vec(vplus, delta);
-    delta_new[0] = delta[0] + charge_mass * h * emf.Ex;
-    delta_new[1] = delta[1] + charge_mass * h * emf.Ey;
-    delta_new[2] = delta[2] + charge_mass * h * emf.Ez;
+    delta_new[0] = delta[0] + charge_mass * dth * emf.Ex;
+    delta_new[1] = delta[1] + charge_mass * dth * emf.Ey;
+    delta_new[2] = delta[2] + charge_mass * dth * emf.Ez;
 
-    gama = get_gamma_vec(delta_new);
-    igama = 1.0 / gama;
-    ptl->vx = delta_new[0] * igama;
-    ptl->vy = delta_new[1] * igama;
-    ptl->vz = delta_new[2] * igama;
+    ptl->ux = delta_new[0];
+    ptl->uy = delta_new[1];
+    ptl->uz = delta_new[2];
 
     /* update new position */
     vdothp = 0.0;
@@ -824,8 +809,8 @@ void tracking_wirz(struct particles *ptl, double dt)
     }
     vperp = modulus(vplus[0]-vdothp*hpara[0], vplus[1]-vdothp*hpara[1],
                     vplus[2]-vdothp*hpara[2]);
-    gyroR = vperp * gama * c0 * iBtot * iL0 / charge_mass;
-    tmp1 = dt * vdothp * c0 * iL0;
+    gyroR = vperp * gama * c0_norm * iBtot / charge_mass;
+    tmp1 = dt * vdothp * c0_norm;
     tmp2 = gyroR * sindtheta;
     tmp3 = -gyroR * (1.0-cosdtheta);
     for (i = 0; i < 3; i++) {
@@ -843,170 +828,170 @@ void tracking_wirz(struct particles *ptl, double dt)
 /******************************************************************************
  * 4th order Runge-Kutta method to track particles.
  ******************************************************************************/
-void advance(struct particles *ptl, double dt)
-{
-    double h;
-    struct emfields emf;
-    double vx0, vx1, vx2, vx3;
-    double vy0, vy1, vy2, vy3;
-    double vz0, vz1, vz2, vz3;
-    double x0, x1, x2, x3;
-    double y0, y1, y2, y3;
-    double z0, z1, z2, z3;
-    double t0, t1, t2, t3;
-    double deltax, deltay, deltaz;
-    double deltax1, deltay1, deltaz1;
-    double deltax2, deltay2, deltaz2;
-    double deltax3, deltay3, deltaz3;
-    double Cx, Cy, Cz; // cross product in Lorentz force
-    double gama;
-    double RKx1, RKx2, RKx3, RKx4;
-    double RKy1, RKy2, RKy3, RKy4;
-    double RKz1, RKz2, RKz3, RKz4;
-    double RKdeltax1, RKdeltax2, RKdeltax3, RKdeltax4;
-    double RKdeltay1, RKdeltay2, RKdeltay3, RKdeltay4;
-    double RKdeltaz1, RKdeltaz2, RKdeltaz3, RKdeltaz4;
+/* void advance(struct particles *ptl, double dt) */
+/* { */
+/*     double h; */
+/*     struct emfields emf; */
+/*     double vx0, vx1, vx2, vx3; */
+/*     double vy0, vy1, vy2, vy3; */
+/*     double vz0, vz1, vz2, vz3; */
+/*     double x0, x1, x2, x3; */
+/*     double y0, y1, y2, y3; */
+/*     double z0, z1, z2, z3; */
+/*     double t0, t1, t2, t3; */
+/*     double deltax, deltay, deltaz; */
+/*     double deltax1, deltay1, deltaz1; */
+/*     double deltax2, deltay2, deltaz2; */
+/*     double deltax3, deltay3, deltaz3; */
+/*     double Cx, Cy, Cz; // cross product in Lorentz force */
+/*     double gama; */
+/*     double RKx1, RKx2, RKx3, RKx4; */
+/*     double RKy1, RKy2, RKy3, RKy4; */
+/*     double RKz1, RKz2, RKz3, RKz4; */
+/*     double RKdeltax1, RKdeltax2, RKdeltax3, RKdeltax4; */
+/*     double RKdeltay1, RKdeltay2, RKdeltay3, RKdeltay4; */
+/*     double RKdeltaz1, RKdeltaz2, RKdeltaz3, RKdeltaz4; */
 
-    //double B_back; // background B-field
+/*     //double B_back; // background B-field */
 
-    x0 = ptl->x; y0 = ptl->y; z0 = ptl->z;
-    vx0 = ptl->vx; vy0 = ptl->vy; vz0 = ptl->vz;
-    t0 = ptl->t;
-    getdelta(&deltax, &deltay, &deltaz, vx0, vy0, vz0);
+/*     x0 = ptl->x; y0 = ptl->y; z0 = ptl->z; */
+/*     vx0 = ptl->vx; vy0 = ptl->vy; vz0 = ptl->vz; */
+/*     t0 = ptl->t; */
+/*     getdelta(&deltax, &deltay, &deltaz, vx0, vy0, vz0); */
 
-    emf.Bx = 0.0; emf.By = 0.0; emf.Bz = 0.0;
-    emf.Ex = 0.0; emf.Ey = 0.0; emf.Ez = 0.0;
-//
-// ===== now RK1 ====
-//
-    get_emf(x0, y0, z0, t0, &emf);
-    h = dt / 2.0;
-//    printf("%19.18e\n", dt);
+/*     emf.Bx = 0.0; emf.By = 0.0; emf.Bz = 0.0; */
+/*     emf.Ex = 0.0; emf.Ey = 0.0; emf.Ez = 0.0; */
+/* // */
+/* // ===== now RK1 ==== */
+/* // */
+/*     get_emf(x0, y0, z0, t0, &emf); */
+/*     h = dt / 2.0; */
+/* //    printf("%19.18e\n", dt); */
 
-    cross_product(vx0, vy0, vz0, emf.Bx, emf.By, emf.Bz, &Cx, &Cy, &Cz);
-    RKx1 = vx0 * c0 / L0;
-    RKy1 = vy0 * c0 / L0;
-    RKz1 = vz0 * c0 / L0;
-    RKdeltax1 = charge_mass*(emf.Ex + Cx);
-    RKdeltay1 = charge_mass*(emf.Ey + Cy);
-    RKdeltaz1 = charge_mass*(emf.Ez + Cz);
+/*     cross_product(vx0, vy0, vz0, emf.Bx, emf.By, emf.Bz, &Cx, &Cy, &Cz); */
+/*     RKx1 = vx0 * c0 / L0; */
+/*     RKy1 = vy0 * c0 / L0; */
+/*     RKz1 = vz0 * c0 / L0; */
+/*     RKdeltax1 = charge_mass*(emf.Ex + Cx); */
+/*     RKdeltay1 = charge_mass*(emf.Ey + Cy); */
+/*     RKdeltaz1 = charge_mass*(emf.Ez + Cz); */
 
-//    printf("RK1 Cx, Cy, Cz %10.8e %10.8e %10.8e\n ", Cx, Cy, Cz);
-//
-// ==== now RK2 ====
-//
-    x1 = x0 + h * RKx1;
-    y1 = y0 + h * RKy1;
-    z1 = z0 + h * RKz1;
-    t1 = t0 + h;
+/* //    printf("RK1 Cx, Cy, Cz %10.8e %10.8e %10.8e\n ", Cx, Cy, Cz); */
+/* // */
+/* // ==== now RK2 ==== */
+/* // */
+/*     x1 = x0 + h * RKx1; */
+/*     y1 = y0 + h * RKy1; */
+/*     z1 = z0 + h * RKz1; */
+/*     t1 = t0 + h; */
 
-    deltax1 = deltax + h * RKdeltax1;
-    deltay1 = deltay + h * RKdeltay1;
-    deltaz1 = deltaz + h * RKdeltaz1;
+/*     deltax1 = deltax + h * RKdeltax1; */
+/*     deltay1 = deltay + h * RKdeltay1; */
+/*     deltaz1 = deltaz + h * RKdeltaz1; */
 
-    gama = getgamma(deltax1, deltay1, deltaz1);
-    vx1 = deltax1 / gama;
-    vy1 = deltay1 / gama;
-    vz1 = deltaz1 / gama;
+/*     gama = getgamma(deltax1, deltay1, deltaz1); */
+/*     vx1 = deltax1 / gama; */
+/*     vy1 = deltay1 / gama; */
+/*     vz1 = deltaz1 / gama; */
 
 
-    get_emf(x1, y1, z1, t1, &emf);
+/*     get_emf(x1, y1, z1, t1, &emf); */
 
-    //printf("%20.14e %20.14e %20.14e %20.14e\n", x1, y1, z1, t1);
+/*     //printf("%20.14e %20.14e %20.14e %20.14e\n", x1, y1, z1, t1); */
 
-    cross_product(vx1, vy1, vz1, emf.Bx, emf.By, emf.Bz, &Cx, &Cy, &Cz);
-    RKx2 = vx1 * c0 / L0;
-    RKy2 = vy1 * c0 / L0;
-    RKz2 = vz1 * c0 / L0;
-    RKdeltax2 = charge_mass*(emf.Ex + Cx);
-    RKdeltay2 = charge_mass*(emf.Ey + Cy);
-    RKdeltaz2 = charge_mass*(emf.Ez + Cz);
+/*     cross_product(vx1, vy1, vz1, emf.Bx, emf.By, emf.Bz, &Cx, &Cy, &Cz); */
+/*     RKx2 = vx1 * c0 / L0; */
+/*     RKy2 = vy1 * c0 / L0; */
+/*     RKz2 = vz1 * c0 / L0; */
+/*     RKdeltax2 = charge_mass*(emf.Ex + Cx); */
+/*     RKdeltay2 = charge_mass*(emf.Ey + Cy); */
+/*     RKdeltaz2 = charge_mass*(emf.Ez + Cz); */
 
-//    printf("RK2 Cx, Cy, Cz %10.8e %10.8e %10.8e\n ", Cx, Cy, Cz);
-// ==== now RK3 ====
+/* //    printf("RK2 Cx, Cy, Cz %10.8e %10.8e %10.8e\n ", Cx, Cy, Cz); */
+/* // ==== now RK3 ==== */
 
-    x2 = x0 + h*RKx2;
-    y2 = y0 + h*RKy2;
-    z2 = z0 + h*RKz2;
-    t2 = t0 + h;
+/*     x2 = x0 + h*RKx2; */
+/*     y2 = y0 + h*RKy2; */
+/*     z2 = z0 + h*RKz2; */
+/*     t2 = t0 + h; */
 
-    deltax2 = deltax + h*RKdeltax2;
-    deltay2 = deltay + h*RKdeltay2;
-    deltaz2 = deltaz + h*RKdeltaz2;
+/*     deltax2 = deltax + h*RKdeltax2; */
+/*     deltay2 = deltay + h*RKdeltay2; */
+/*     deltaz2 = deltaz + h*RKdeltaz2; */
 
-    gama = getgamma(deltax2, deltay2, deltaz2);
-    vx2 = deltax2 / gama;
-    vy2 = deltay2 / gama;
-    vz2 = deltaz2 / gama;
+/*     gama = getgamma(deltax2, deltay2, deltaz2); */
+/*     vx2 = deltax2 / gama; */
+/*     vy2 = deltay2 / gama; */
+/*     vz2 = deltaz2 / gama; */
 
-    get_emf(x2, y2, z2, t2, &emf);
+/*     get_emf(x2, y2, z2, t2, &emf); */
 
-    cross_product(vx2, vy2, vz2, emf.Bx, emf.By, emf.Bz, &Cx, &Cy, &Cz);
-    RKx3 = vx2 * c0 / L0;
-    RKy3 = vy2 * c0 / L0;
-    RKz3 = vz2 * c0 / L0;
-    RKdeltax3 = charge_mass*(emf.Ex + Cx);
-    RKdeltay3 = charge_mass*(emf.Ey + Cy);
-    RKdeltaz3 = charge_mass*(emf.Ez + Cz);
+/*     cross_product(vx2, vy2, vz2, emf.Bx, emf.By, emf.Bz, &Cx, &Cy, &Cz); */
+/*     RKx3 = vx2 * c0 / L0; */
+/*     RKy3 = vy2 * c0 / L0; */
+/*     RKz3 = vz2 * c0 / L0; */
+/*     RKdeltax3 = charge_mass*(emf.Ex + Cx); */
+/*     RKdeltay3 = charge_mass*(emf.Ey + Cy); */
+/*     RKdeltaz3 = charge_mass*(emf.Ez + Cz); */
 
-//    printf("RK3 Cx, Cy, Cz %10.8e %10.8e %10.8e\n ", Cx, Cy, Cz);
-// ==== now RK4 ====
-//
-    x3 = x0 + 2.0*h*RKx3;
-    y3 = y0 + 2.0*h*RKy3;
-    z3 = z0 + 2.0*h*RKz3;
-    t3 = t0 + 2.0*h;
+/* //    printf("RK3 Cx, Cy, Cz %10.8e %10.8e %10.8e\n ", Cx, Cy, Cz); */
+/* // ==== now RK4 ==== */
+/* // */
+/*     x3 = x0 + 2.0*h*RKx3; */
+/*     y3 = y0 + 2.0*h*RKy3; */
+/*     z3 = z0 + 2.0*h*RKz3; */
+/*     t3 = t0 + 2.0*h; */
 
-    deltax3 = deltax + 2.0*h*RKdeltax3;
-    deltay3 = deltay + 2.0*h*RKdeltay3;
-    deltaz3 = deltaz + 2.0*h*RKdeltaz3;
+/*     deltax3 = deltax + 2.0*h*RKdeltax3; */
+/*     deltay3 = deltay + 2.0*h*RKdeltay3; */
+/*     deltaz3 = deltaz + 2.0*h*RKdeltaz3; */
 
-    gama = getgamma(deltax3, deltay3, deltaz3);
-    vx3 = deltax3 / gama;
-    vy3 = deltay3 / gama;
-    vz3 = deltaz3 / gama;
+/*     gama = getgamma(deltax3, deltay3, deltaz3); */
+/*     vx3 = deltax3 / gama; */
+/*     vy3 = deltay3 / gama; */
+/*     vz3 = deltaz3 / gama; */
 
-    get_emf(x3, y3, z3, t3, &emf);
+/*     get_emf(x3, y3, z3, t3, &emf); */
 
-    cross_product(vx3, vy3, vz3, emf.Bx, emf.By, emf.Bz, &Cx, &Cy, &Cz);
-    RKx4 = vx3 * c0 / L0;
-    RKy4 = vy3 * c0 / L0;
-    RKz4 = vz3 * c0 / L0;
-    RKdeltax4 = charge_mass*(emf.Ex +Cx);
-    RKdeltay4 = charge_mass*(emf.Ey +Cy);
-    RKdeltaz4 = charge_mass*(emf.Ez +Cz);
+/*     cross_product(vx3, vy3, vz3, emf.Bx, emf.By, emf.Bz, &Cx, &Cy, &Cz); */
+/*     RKx4 = vx3 * c0 / L0; */
+/*     RKy4 = vy3 * c0 / L0; */
+/*     RKz4 = vz3 * c0 / L0; */
+/*     RKdeltax4 = charge_mass*(emf.Ex +Cx); */
+/*     RKdeltay4 = charge_mass*(emf.Ey +Cy); */
+/*     RKdeltaz4 = charge_mass*(emf.Ez +Cz); */
 
-//    printf("RK4 Cx, Cy, Cz %10.8e %10.8e %10.8e\n ", Cx, Cy, Cz);
+/* //    printf("RK4 Cx, Cy, Cz %10.8e %10.8e %10.8e\n ", Cx, Cy, Cz); */
 
-////==== finishing RK method. old (x,y,z,vx,vy,vz,t) -> new (x,y,z,vx,vy,vz,t)
-//        printf("RKx1, RKx2, RKx3, RKx4: %10.9e %10.9e %10.9e %10.9e\n",
-//        RKx1, RKx2, RKx3, RKx4);
-//        printf("RKy1, RKy2, RKy3, RKy4: %10.9e %10.9e %10.9e %10.9e\n",
-//        RKy1, RKy2, RKy3, RKy4);
-//        printf("RKz1, RKz2, RKz3, RKz4: %10.9e %10.9e %10.9e %10.9e\n",
-//        RKz1, RKz2, RKz3, RKz4);
-//        printf("RKdeltax1, RKdeltax2, RKdeltax3, RKdeltax4: %10.9e %10.9e %10.9e %10.9e\n",
-//        RKdeltax1, RKdeltax2, RKdeltax3, RKdeltax4);
-//        printf("RKdeltay1, RKdeltay2, RKdeltay3, RKdeltay4: %10.9e %10.9e %10.9e %10.9e\n",
-//        RKdeltay1, RKdeltay2, RKdeltay3, RKdeltay4);
-//        printf("RKdeltaz1, RKdeltaz2, RKdeltaz3, RKdeltaz4: %10.9e %10.9e %10.9e %10.9e\n",
-//        RKdeltaz1, RKdeltaz2, RKdeltaz3, RKdeltaz4);
-    ptl->x += h/3.0 * ( RKx1 + 2.0*RKx2 + 2.0*RKx3 + RKx4);
-    ptl->y += h/3.0 * ( RKy1 + 2.0*RKy2 + 2.0*RKy3 + RKy4);
-    ptl->z += h/3.0 * ( RKz1 + 2.0*RKz2 + 2.0*RKz3 + RKz4);
+/* ////==== finishing RK method. old (x,y,z,vx,vy,vz,t) -> new (x,y,z,vx,vy,vz,t) */
+/* //        printf("RKx1, RKx2, RKx3, RKx4: %10.9e %10.9e %10.9e %10.9e\n", */
+/* //        RKx1, RKx2, RKx3, RKx4); */
+/* //        printf("RKy1, RKy2, RKy3, RKy4: %10.9e %10.9e %10.9e %10.9e\n", */
+/* //        RKy1, RKy2, RKy3, RKy4); */
+/* //        printf("RKz1, RKz2, RKz3, RKz4: %10.9e %10.9e %10.9e %10.9e\n", */
+/* //        RKz1, RKz2, RKz3, RKz4); */
+/* //        printf("RKdeltax1, RKdeltax2, RKdeltax3, RKdeltax4: %10.9e %10.9e %10.9e %10.9e\n", */
+/* //        RKdeltax1, RKdeltax2, RKdeltax3, RKdeltax4); */
+/* //        printf("RKdeltay1, RKdeltay2, RKdeltay3, RKdeltay4: %10.9e %10.9e %10.9e %10.9e\n", */
+/* //        RKdeltay1, RKdeltay2, RKdeltay3, RKdeltay4); */
+/* //        printf("RKdeltaz1, RKdeltaz2, RKdeltaz3, RKdeltaz4: %10.9e %10.9e %10.9e %10.9e\n", */
+/* //        RKdeltaz1, RKdeltaz2, RKdeltaz3, RKdeltaz4); */
+/*     ptl->x += h/3.0 * ( RKx1 + 2.0*RKx2 + 2.0*RKx3 + RKx4); */
+/*     ptl->y += h/3.0 * ( RKy1 + 2.0*RKy2 + 2.0*RKy3 + RKy4); */
+/*     ptl->z += h/3.0 * ( RKz1 + 2.0*RKz2 + 2.0*RKz3 + RKz4); */
 
-    deltax += h/3.0 * (RKdeltax1 + 2.0*RKdeltax2 + 2.0*RKdeltax3 + RKdeltax4);
-    deltay += h/3.0 * (RKdeltay1 + 2.0*RKdeltay2 + 2.0*RKdeltay3 + RKdeltay4);
-    deltaz += h/3.0 * (RKdeltaz1 + 2.0*RKdeltaz2 + 2.0*RKdeltaz3 + RKdeltaz4);
+/*     deltax += h/3.0 * (RKdeltax1 + 2.0*RKdeltax2 + 2.0*RKdeltax3 + RKdeltax4); */
+/*     deltay += h/3.0 * (RKdeltay1 + 2.0*RKdeltay2 + 2.0*RKdeltay3 + RKdeltay4); */
+/*     deltaz += h/3.0 * (RKdeltaz1 + 2.0*RKdeltaz2 + 2.0*RKdeltaz3 + RKdeltaz4); */
 
-    gama = getgamma(deltax, deltay, deltaz);
+/*     gama = getgamma(deltax, deltay, deltaz); */
 
-    ptl->vx = deltax / gama;
-    ptl->vy = deltay / gama;
-    ptl->vz = deltaz / gama;
-    ptl->t += dt;
+/*     ptl->vx = deltax / gama; */
+/*     ptl->vy = deltay / gama; */
+/*     ptl->vz = deltaz / gama; */
+/*     ptl->t += dt; */
 
-}
+/* } */
 
 /******************************************************************************
  * Calculate gama * beta. gama is Lorentz factor. Beta is the ratio of velocity
@@ -1149,4 +1134,38 @@ void particle_bc(double *x, double *y, double *z, int *iescape)
     else if (bc_flag == 2) {
         *iescape = 0;
     }
+}
+
+/******************************************************************************
+ * Get one time interval for particle tracking
+ ******************************************************************************/
+double get_tracking_time_interval(int mpi_rank, char *config_file_name,
+        double pmass)
+{
+    double dt;
+    FILE *fp;
+    int msg;
+    fp = fopen(config_file_name, "r");
+    char *buff = (char *)malloc(sizeof(*buff)*LEN_MAX);
+    while (fgets(buff, LEN_MAX, fp) != NULL) {
+        if (strstr(buff, "Tracking method to use") != NULL) {
+            break;
+        }
+    }
+    dt = 0.0;
+    msg = fscanf(fp, "Tracking time step (for electrons): %lf\n", &dt);
+    if (msg != 1) {
+        printf("Failed to read particle tracking time step.\n");
+        exit(1);
+    }
+    free(buff);
+    fclose(fp);
+
+    // The step should be a fraction of particle gyro-period, so it should
+    // depend on particle mass.
+    dt *= pmass;
+    if (mpi_rank == 0) {
+        printf("Particle tracking time step is: %lf\n", dt);
+    }
+    return dt;
 }

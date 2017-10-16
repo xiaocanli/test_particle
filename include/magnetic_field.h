@@ -1,4 +1,4 @@
-/* Velocity fields */
+/* Magnetic field */
 #ifndef BFIELDS_DOUBLE_H
 #define BFIELDS_DOUBLE_H
 typedef struct bfields_double {

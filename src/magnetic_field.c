@@ -50,7 +50,7 @@ int multi_tframe;
  * Variables to set:
  *  simul_grid: the grid information for the fields.
  *  simul_domain: the domain information for the simulation.
- *  B0: the normalization for the velocity field.
+ *  B0: the normalization for the magnetic field.
  ******************************************************************************/
 void set_variables_bfield(grids *sgrid, domain *sdomain, double B0_field,
         int mt, int dtype)
@@ -546,7 +546,7 @@ void read_bfields_binary(char *filepath, int ct, int data_type)
 }
 
 /******************************************************************************
- * Get magnetic field at a point. The velocities have double data type.
+ * Get magnetic field at a point. The fields have double data type.
  *
  * Input:
  *  x, y, z: the spatial positions.
@@ -584,7 +584,7 @@ void get_double_bfield_at_point(double x, double y, double z, double t,
 }
 
 /******************************************************************************
- * Get magnetic field at a point. The velocities have float data type.
+ * Get magnetic field at a point. The fields have float data type.
  *
  * Input:
  *  x, y, z: the spatial positions.

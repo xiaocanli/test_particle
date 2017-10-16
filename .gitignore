@@ -1,8 +1,10 @@
+bin/
 data/
 outfile
-*.o
 *.map
+*.o
 *.optrpt
+*.pyc
 cbmpi
 eneb
 test_particle

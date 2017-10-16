@@ -8,6 +8,7 @@ RANLIB = ranlib
 RM 	   = rm -f
 CFLAGS = -Werror -Wall -g -pedantic -std=gnu99 -Wno-long-long -fopenmp
 OPTIMIZATION = -O2 -qopt-report-phase=vec -fp-model precise -xAVX -Wno-strict-aliasing -fomit-frame-pointer
+# OPTIMIZATION =
 
 # Specify HDF5_ROOT
 HDF5_ROOT = /usr/projects/hpcsoft/toss3/grizzly/hdf5/1.8.16_intel-17.0.1_openmpi-1.10.5

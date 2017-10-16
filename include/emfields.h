@@ -31,3 +31,5 @@ void getemf_test(double x, double y, double z, double t, struct emfields *emf);
 void set_variables_emfields(int stype);
 void getemf_mhd_test_particle(double x, double y, double z, double t,
         struct emfields *emf);
+void getemf_pic_test_particle(double x, double y, double z, double t,
+        struct emfields *emf);

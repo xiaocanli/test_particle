@@ -30,7 +30,6 @@
 #include "tracking.h"
 
 double emin, emax, logemin, logemax, logde;
-int energy_type;
 /* All of the particle trajectories are output in nsteps_output frames */
 /* init_ptl_traj may update it depending on the maximum particle tracking steps */
 int nsteps_output = 10;
@@ -51,12 +50,11 @@ int nsteps_output = 10;
 void calc_energy_spectrum(int mpi_rank, int nptl, struct particles *ptl,
         int nbins, int nt_out, double pmass, int bc_flag)
 {
-    double beta, gama, ene, rest_ene;
+    double gama, ene;
     double *ebins, *einterval;
     double *espectrum, *espect_tot;
     int i, ibin;
     FILE *fp;
-    rest_ene = REST_ENE_PROTON * pmass;
     espectrum = (double *)malloc(sizeof(double)*nbins);
     for (i = 0; i < nbins; i++) {
         espectrum[i] = 0;
@@ -81,9 +79,9 @@ void calc_energy_spectrum(int mpi_rank, int nptl, struct particles *ptl,
     }
 
     for (i = 0; i < nptl; i++) {
-        beta = sqrt(ptl[i].vx*ptl[i].vx+ptl[i].vy*ptl[i].vy+ptl[i].vz*ptl[i].vz);
-        gama = 1.0 / sqrt(1.0-beta*beta);
-        ene = (gama - 1.0) * rest_ene;
+        gama = sqrt(1.0 + ptl[i].ux*ptl[i].ux +
+                ptl[i].uy*ptl[i].uy + ptl[i].uz*ptl[i].uz);
+        ene = (gama - 1.0);
         ibin = (log10(ene) - logemin)/logde;
         if (ibin < 0) {
             ibin = 0;
@@ -150,16 +148,15 @@ void calc_energy_spectrum(int mpi_rank, int nptl, struct particles *ptl,
 void ptl_energy_adaptive(double *ydense, int t1, int t2, int tid, int nbins,
         int nt_out, double pmass, int nvar, double espectrum[][nbins*nt_out])
 {
-    double beta, gama, ene, rest_ene;
+    double beta, gama, ene;
     int i, j, ibin;
 
-    rest_ene = REST_ENE_PROTON * pmass;
     for (i = t2; i < t1; i++) {
         j = nvar * (i-1);
         beta = sqrt(ydense[j+3]*ydense[j+3]+ydense[j+4]*ydense[j+4]+
                 ydense[j+5]*ydense[j+5]);
         gama = 1.0 / sqrt(1.0-beta*beta);
-        ene = (gama-1.0) * rest_ene;
+        ene = gama - 1.0;
         ibin = floor((log10(ene)-logemin)/logde);
         if (ibin < 0) {
             ibin = 0;
@@ -187,17 +184,16 @@ void ptl_energy_adaptive(double *ydense, int t1, int t2, int tid, int nbins,
  *  espectrum is updated.
  ******************************************************************************/
 void ptl_energy_fixed(int ptl_id, int it, int tid, struct particles *ptl,
-        int nbins, int nt_out, double pmass, double espectrum[][nbins*nt_out])
+        int nbins, int nt_out, double espectrum[][nbins*nt_out])
 {
-    double beta2, gama, ene, rest_ene;
+    double gama, ene;
     int ibin;
 
-    rest_ene = REST_ENE_PROTON * pmass;
-    beta2 = ptl[ptl_id].vx*ptl[ptl_id].vx +
-            ptl[ptl_id].vy*ptl[ptl_id].vy +
-            ptl[ptl_id].vz*ptl[ptl_id].vz;
-    gama = 1.0 / sqrt(1.0-beta2);
-    ene = (gama-1.0) * rest_ene;
+    gama = sqrt(1.0 +
+            ptl[ptl_id].ux*ptl[ptl_id].ux +
+            ptl[ptl_id].uy*ptl[ptl_id].uy +
+            ptl[ptl_id].uz*ptl[ptl_id].uz);
+    ene = gama - 1.0;
     ibin = floor((log10(ene)-logemin)/logde);
     if (ibin < 0) {
         ibin = 0;
@@ -406,16 +402,15 @@ void save_particles_fields(int mpi_rank, int nptl, struct particles *ptl,
 void sort_particles_energy(int mpi_rank, int nptl, double pmass,
         int *nptl_accumulate, struct particles *ptl, int *nsteps_ptl_tracking)
 {
-    double beta, gama, rest_ene;
+    double gama;
     int i;
 
-    rest_ene = REST_ENE_PROTON * pmass;
     double *ptl_ene = (double *)malloc(sizeof(double)*nptl);
     int *index_ptl = (int *)malloc(sizeof(int)*nptl);
     for (i=0; i<nptl; i++) {
-        beta = sqrt(ptl[i].vx*ptl[i].vx+ptl[i].vy*ptl[i].vy+ptl[i].vz*ptl[i].vz);
-        gama = 1.0 / sqrt(1.0 - beta*beta);
-        ptl_ene[i] = (gama - 1.0) * rest_ene;
+        gama = sqrt(1.0 + ptl[i].ux*ptl[i].ux +
+                ptl[i].uy*ptl[i].uy + ptl[i].uz*ptl[i].uz);
+        ptl_ene[i] = gama - 1.0;
         index_ptl[i] = i;
     }
     quicksort(ptl_ene, index_ptl, nptl);
@@ -516,10 +511,10 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
     }
     particle_broadcast(mpi_rank, mpi_size, nptl_traj_tot, &nptl_traj,
             nptl_traj_accumulate);
-    /* Particle trajectory information */
+    // Particle trajectory information
     struct particles *ptl_traj =
         (struct particles *)malloc(sizeof(particles)*nptl_traj);
-    /* Number of trajectory points for all particles in current MPI process */
+    // Number of trajectory points for all particles in current MPI process
     int *ntraj_accum = (int *)malloc(sizeof(int)*nptl_traj);
     init_ptl_traj(nptl, nptl_traj, nsteps_ptl_tracking, ptl, &ntraj,
             ntraj_accum, ptl_traj);
@@ -537,10 +532,10 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(ntraj_accum_global, mpi_size, MPI_INT, 0, MPI_COMM_WORLD);
 
-    /* Time evolution of particles. */
+    // Time evolution of particles.
     particles *ptl_time = (struct particles *)malloc(sizeof(particles)*ntraj);
 
-    /* Initial particles info. */
+    // Initial particles info.
     for (i = 0; i < nptl_traj; i++) {
         if (i == 0) {
             ntraj_offset_local = 0;
@@ -560,15 +555,11 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
             ntraj_accum_global[mpi_size-1], ntraj_accum_global,
             "data/particle_diagnostics.h5", system_type);
 
-    /* for (i = 0; i < 16; i++) { */
-    /*     printf("%f\n", ptl[i].x); */
-    /* } */
-
+    free(ptl_time);
     free(ntraj_accum_global);
     free(ntraj_accum);
     free(ptl_traj);
     free(nptl_traj_accumulate);
-    free(ptl_time);
 }
 
 /******************************************************************************
@@ -623,13 +614,7 @@ void get_spectrum_info(int mpi_rank, char *config_file_name, int *nbins,
 
     msg = fscanf(fp, "Number of diagnostic time frames: %d\n", nt_out);
     if (msg != 1) {
-        printf("Failed to read energy_type.\n");
-        exit(1);
-    }
-
-    msg = fscanf(fp, "If emin and emax in MeV: %d\n", &energy_type);
-    if (msg != 1) {
-        printf("Failed to read energy_type.\n");
+        printf("Failed to read the number of diagnostic time frames.\n");
         exit(1);
     }
 
@@ -638,21 +623,13 @@ void get_spectrum_info(int mpi_rank, char *config_file_name, int *nbins,
 
     logemin = log10(emin);
     logemax = log10(emax);
-    logde = (logemax - logemin) / (*nbins - 2.0);
+    logde = (logemax - logemin) / (*nbins - 2);
 
     if (mpi_rank == 0) {
         printf("============= Spectrum Info ==============\n");
         printf("nbins = %d\n", *nbins);
         printf("Number of diagnostic frames: %d\n", *nt_out);
-        if (energy_type == 1) {
-            /* In MeV */
-            printf("emin, emax = %f%s %f%s\n", emin, "MeV", emax, "MeV");
-            printf("Energy are calculated as MeV\n");
-        } else {
-            /* In gamma */
-            printf("emin, emax = %f %f\n", emin, emax);
-            printf("Energy are calculated as gamma (Lorentz factor)\n");
-        }
+        printf("emin, emax (in Lorentz factor) = %f %f\n", emin, emax);
         printf("=========================================\n");
     }
 }
@@ -677,14 +654,15 @@ void calc_diff_coeff(particles *ptl_init, particles *ptl, double dt,
     *duu = 0.0;
     *drr = (pow(ptl_init->x - ptl->x, 2) + pow(ptl_init->y - ptl->y, 2) +
            pow(ptl_init->z - ptl->z, 2)) / t;
-    vx = ptl->vx;
-    vy = ptl->vy;
-    vz = ptl->vz;
-    gama = 1.0 / sqrt(1 - (vx*vx + vy*vy + vz*vz));
-    vx0 = ptl_init->vx;
-    vy0 = ptl_init->vy;
-    vz0 = ptl_init->vz;
-    gama0 = 1.0 / sqrt(1 - (vx0*vx0 + vy0*vy0 + vz0*vz0));
+    gama = sqrt(1.0 + ptl->ux*ptl->ux + ptl->uy*ptl->uy + ptl->uz*ptl->uz);
+    vx = ptl->ux / gama;
+    vy = ptl->uy / gama;
+    vz = ptl->uz / gama;
+    gama0 = sqrt(1.0 + ptl_init->ux*ptl_init->ux +
+            ptl_init->uy*ptl_init->uy + ptl_init->uz*ptl_init->uz);
+    vx0 = ptl_init->ux / gama0;
+    vy0 = ptl_init->uy / gama0;
+    vz0 = ptl_init->uz / gama0;
     *dpp = (pow(gama*vx - gama0*vx0, 2) + pow(gama*vy - gama0*vy0, 2) +
             pow(gama*vz - gama0*vz0, 2)) / t;
 }

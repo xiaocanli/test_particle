@@ -11,7 +11,8 @@
 
 int read_rerun_flag(char *config_file_name);
 void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
-        double vthe, int system_type, struct particles *ptl, int is_single_vel);
+        double vthe, double charge_mass, int system_type, struct particles *ptl,
+        int is_single_vel);
 
 /******************************************************************************
  * Assign particles to each process.
@@ -97,25 +98,23 @@ void particle_broadcast(int mpi_rank, int mpi_size, int nptl_tot, int *nptl,
  *
  * Output:
  *  nptl_tot: total number of particles.
- *  ptemp: particle temperature.
  *  pmass: particle mass.
- *  pcharge: particle charge.
- *  charge_sign: the sign of the particles.
  *  vthe: thermal speed of particles.
  *  charge_mass: the ratio of particle charge and mass.
  *  bc_flag: the boundary condition flag.
  *  is_traj_diagnostic: whether to diagnose particle trajectories.
  *  nptl_traj_tot: number of particles for trajectory diagnostics.
+ *  is_single_vel: whether particles have the velocity initially
  ******************************************************************************/
 void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
-        double *ptemp, double *pmass, double *pcharge, int *charge_sign,
-        double *vthe, double *charge_mass, int *bc_flag,
+        double *pmass, double *vthe, double *charge_mass, int *bc_flag,
         int *is_traj_diagnostic, int *nptl_traj_tot, int *is_single_vel)
 {
     float np;
     char buff[LEN_MAX];
     FILE *fp;
     int msg;
+    double ptemp, pcharge;
     fp = fopen(config_file_name, "r");
     while (fgets(buff,LEN_MAX,fp) != NULL){
         if (strstr(buff, "Particle information")) {
@@ -128,9 +127,9 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
         exit(1);
     }
     *nptl_tot = (int)np;
-    msg = fscanf(fp, "Particle temperature:%lf\n", ptemp);
+    msg = fscanf(fp, "Particle thermal speed (in light speed):%lf\n", vthe);
     if (msg != 1) {
-        printf("Failed to read the particle temperature.\n");
+        printf("Failed to read the particle thermal speed.\n");
         exit(1);
     }
     msg = fscanf(fp, "Single velocity: %d\n", is_single_vel);
@@ -143,7 +142,7 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
         printf("Failed to read the particle mass.\n");
         exit(1);
     }
-    msg = fscanf(fp, "Charge:%lf\n", pcharge);
+    msg = fscanf(fp, "Charge:%lf\n", &pcharge);
     if (msg != 1) {
         printf("Failed to read the particle charge.\n");
         exit(1);
@@ -165,13 +164,12 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
         }
     }
 
-    *charge_sign = (*pcharge) / fabs(*pcharge);
-    *vthe = sqrt((*ptemp) / (*pmass)) * VTHE_NORM;
-    *charge_mass = CHARGE_MASS_PROTON * (*pcharge) / (*pmass);
+    ptemp = 2.97045E9 * (*vthe) * (*vthe) * (*pmass);
+    *charge_mass = CHARGE_MASS_ELECTRON_NORM * pcharge / (*pmass);
 
     double ptl_ene, gama;
-    gama = 1.0 / sqrt(1.0 - (*vthe)*(*vthe)/(c0*c0));
-    ptl_ene = (gama - 1.0) * REST_ENE_PROTON * (*pmass);
+    gama = 1.0 / sqrt(1.0 - (*vthe)*(*vthe));
+    ptl_ene = (gama - 1.0) * REST_ENE_ELECTRON * (*pmass);
 
     /* Boundary condition for particles*/
     while (fgets(buff, LEN_MAX, fp) != NULL){
@@ -188,10 +186,10 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
     if (mpi_rank == 0) {
         printf("========================================\n");
         printf("Total number of particles = %e\n", (double)*nptl_tot);
-        printf("Initial temperature = %f\n", *ptemp);
-        printf("Mass of particles = %f\n", *pmass);
-        printf("Charge of particles = %f\n", *pcharge);
-        printf("Particle thermal velocity = %f\n", *vthe);
+        printf("Initial temperature / MK = %f\n", ptemp/1.0E6);
+        printf("Mass of particles (in electron mass) = %f\n", *pmass);
+        printf("Charge of particles (in electron charge) = %f\n", pcharge);
+        printf("Particle thermal velocity (in light speed) = %f\n", *vthe);
         printf("Particle thermal energy = %f keV\n", ptl_ene * 1000);
         if ((*bc_flag) == 0) {
             printf("Using periodic boundary condition for particles\n");
@@ -224,9 +222,9 @@ void read_particle_info(int mpi_rank, char *config_file_name, int *nptl_tot,
  * Output:
  *  ptl: particle structure array.
  ******************************************************************************/
-void initialize_partilces(int mpi_rank, int mpi_size, char *config_file_name,
-        domain simul_domain, int nptl, double vthe, int system_type,
-        int *nptl_accumulate,  particles *ptl, int is_single_vel)
+void initialize_particles(int mpi_rank, int mpi_size, char *config_file_name,
+        domain simul_domain, int nptl, double vthe, double charge_mass,
+        int system_type, int *nptl_accumulate, particles *ptl, int is_single_vel)
 {
     int rerun_flag;
     rerun_flag = read_rerun_flag(config_file_name);
@@ -239,8 +237,8 @@ void initialize_partilces(int mpi_rank, int mpi_size, char *config_file_name,
     }
     if (rerun_flag == 0) {
         /* new run */
-        init_ptl(mpi_rank, mpi_size, simul_domain, nptl, vthe, system_type,
-                ptl, is_single_vel);
+        init_ptl(mpi_rank, mpi_size, simul_domain, nptl, vthe, charge_mass,
+                system_type, ptl, is_single_vel);
     } else {
         /* load particles from last run */
         read_particles(mpi_rank, nptl, nptl_accumulate, ptl,
@@ -303,14 +301,17 @@ void gaussian_rand(double *ran1, double *ran2)
  * Input:
  *  nptl: particle number for this MPI process.
  *  vthe: thermal speed of particles.
+ *  charge_mass: the ratio of particle charge and mass
  * Output:
  *  ptl: particle structure array.
  ******************************************************************************/
 void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
-        double vthe, int system_type, struct particles *ptl, int is_single_vel)
+        double vthe, double charge_mass, int system_type, struct particles *ptl,
+        int is_single_vel)
 {
     double xmin, xmax, ymin, ymax, zmin, zmax;
-    double ran1, ran2, tmp, theta, phi;
+    double ran1, ran2, theta, phi;
+    double uthe;
     int i;
     xmin = simul_domain.xmin_ptl;
     xmax = simul_domain.xmax_ptl;
@@ -318,21 +319,19 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
     ymax = simul_domain.ymax_ptl;
     zmin = simul_domain.zmin_ptl;
     zmax = simul_domain.zmax_ptl;
-    tmp = sqrt(2.0) * vthe;
-    //printf("Thermal speed: %f\n", vthe);
+    uthe = vthe / sqrt(1.0 - vthe * vthe);  // gamma * v
     srand48((unsigned)time(NULL)+mpi_rank*mpi_size);
     if (system_type == 0) {
         double nvthe = 100.0;
         for (i = 0; i < nptl; i++) {
-            //ptl[i].vx = drand48()*nvthe*tmp / c0;
-            //ptl[i].vy = drand48()*nvthe*tmp / c0;
             ptl[i].x = 0.0;
             ptl[i].y = 0.0;
             ptl[i].z = 0.0;
+            ptl[i].qm = charge_mass;
+            ptl[i].ux = nvthe*(i+1) * uthe / nptl;
+            ptl[i].uy = nvthe*(i+1) * uthe / nptl;
+            ptl[i].uz = 0.0;
             ptl[i].t = 0.0;
-            ptl[i].vx = nvthe*(i+1)*tmp / (c0*nptl);
-            ptl[i].vy = nvthe*(i+1)*tmp / (c0*nptl);
-            ptl[i].vz = 0.0;
         }
     }
     else {
@@ -340,23 +339,24 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
             ptl[i].x = (xmax-xmin)*drand48() + xmin;
             ptl[i].y = (ymax-ymin)*drand48() + ymin;
             ptl[i].z = (zmax-zmin)*drand48() + zmin;
+            ptl[i].qm = charge_mass;
             ptl[i].t = 0.0;
         }
         if (is_single_vel) {
             for (i = 0; i < nptl; i++) {
                 theta = drand48() * M_PI;
                 phi = drand48() * M_PI * 2;
-                ptl[i].vx = vthe * sin(theta) * cos(phi) / c0;
-                ptl[i].vy = vthe * sin(theta) * sin(phi) / c0;
-                ptl[i].vz = vthe * cos(theta) / c0;
+                ptl[i].ux = uthe * sin(theta) * cos(phi);
+                ptl[i].uy = uthe * sin(theta) * sin(phi);
+                ptl[i].uz = uthe * cos(theta);
             }
         } else {
             for (i = 0; i < nptl; i++) {
                 gaussian_rand(&ran1, &ran2);
-                ptl[i].vx = ran1*tmp / c0;
-                ptl[i].vy = ran2*tmp / c0;
+                ptl[i].ux = ran1 * uthe;
+                ptl[i].uy = ran2 * uthe;
                 gaussian_rand(&ran1, &ran2);
-                ptl[i].vz = ran1*tmp / c0;
+                ptl[i].uz = ran1 * uthe;
             }
         }
     }
@@ -460,12 +460,14 @@ void create_particles_ctype(hid_t *memtype, hid_t *filetype)
             HOFFSET(particles, y), H5T_NATIVE_DOUBLE);
     H5Tinsert(*memtype, "z",
             HOFFSET(particles, z), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "vx",
-            HOFFSET(particles, vx), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "vy",
-            HOFFSET(particles, vy), H5T_NATIVE_DOUBLE);
-    H5Tinsert(*memtype, "vz",
-            HOFFSET(particles, vz), H5T_NATIVE_DOUBLE);
+    H5Tinsert(*memtype, "qm",
+            HOFFSET(particles, qm), H5T_NATIVE_DOUBLE);
+    H5Tinsert(*memtype, "ux",
+            HOFFSET(particles, ux), H5T_NATIVE_DOUBLE);
+    H5Tinsert(*memtype, "uy",
+            HOFFSET(particles, uy), H5T_NATIVE_DOUBLE);
+    H5Tinsert(*memtype, "uz",
+            HOFFSET(particles, uz), H5T_NATIVE_DOUBLE);
     H5Tinsert(*memtype, "t",
             HOFFSET(particles, t), H5T_NATIVE_DOUBLE);
     /*
@@ -474,12 +476,13 @@ void create_particles_ctype(hid_t *memtype, hid_t *filetype)
      * the corresponding native types, we must manually calculate the
      * offset of each member.
      */
-    *filetype = H5Tcreate(H5T_COMPOUND, 8*7);
+    *filetype = H5Tcreate(H5T_COMPOUND, 8*8);
     H5Tinsert (*filetype, "x", 0, H5T_IEEE_F64BE);
     H5Tinsert (*filetype, "y", 8, H5T_IEEE_F64BE);
     H5Tinsert (*filetype, "z", 8*2, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "vx", 8*3, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "vy", 8*4, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "vz", 8*5, H5T_IEEE_F64BE);
-    H5Tinsert (*filetype, "t", 8*6, H5T_IEEE_F64BE);
+    H5Tinsert (*filetype, "qm", 8*3, H5T_IEEE_F64BE);
+    H5Tinsert (*filetype, "ux", 8*4, H5T_IEEE_F64BE);
+    H5Tinsert (*filetype, "uy", 8*5, H5T_IEEE_F64BE);
+    H5Tinsert (*filetype, "uz", 8*6, H5T_IEEE_F64BE);
+    H5Tinsert (*filetype, "t", 8*7, H5T_IEEE_F64BE);
 }

@@ -38,7 +38,7 @@ void ptl_energy_adaptive(double *ydense, int t1, int t2, int tid, int nbins,
         int nt_out, double pmass, int nvar, double espectrum[][nbins*nt_out]);
 
 void ptl_energy_fixed(int ptl_id, int it, int tid, struct particles *ptl, 
-        int nbins, int nt_out, double pmass, double espectrum[][nbins*nt_out]);
+        int nbins, int nt_out, double espectrum[][nbins*nt_out]);
 
 void collect_espectrum(int mpi_rank, int nbins, int nt_out,
         double espectrum[][nbins], double espect_tot[][nbins], char *fname);

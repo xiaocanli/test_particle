@@ -28,6 +28,7 @@
 #include "wlcs.h"
 #include "velocity_field.h"
 #include "magnetic_field.h"
+#include "electric_field.h"
 #include "emfields.h"
 #include "tracking.h"
 
@@ -39,8 +40,8 @@ int main(int argc, char **argv)
     int ierr, mpi_size, mpi_rank;
     char config_file_name[LEN_MAX];
     int ipvd, err, system_type, tracking_method;
-    int nptl_tot, bc_flag, charge_sign, nptl_traj_tot;
-    double ptemp, pmass, pcharge, charge_mass, vthe;
+    int nptl_tot, bc_flag, nptl_traj_tot;
+    double pmass, charge_mass, vthe;
     int nptl, nbins, nt_out;
     int is_traj_diagnostic, is_single_vel;
 
@@ -59,11 +60,13 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    // Read particle information
     is_traj_diagnostic = 0;
-    read_particle_info(mpi_rank, config_file_name, &nptl_tot, &ptemp,
-            &pmass, &pcharge, &charge_sign, &vthe, &charge_mass, &bc_flag,
-            &is_traj_diagnostic, &nptl_traj_tot, &is_single_vel);
+    read_particle_info(mpi_rank, config_file_name, &nptl_tot, &pmass,
+            &vthe, &charge_mass, &bc_flag, &is_traj_diagnostic,
+            &nptl_traj_tot, &is_single_vel);
 
+    // Set the particle numbers on each process
     int *nptl_accumulate = (int *)malloc(sizeof(int)*mpi_size);
     for (int i = 0; i < mpi_size; i++) {
         nptl_accumulate[i] = 0;
@@ -71,27 +74,29 @@ int main(int argc, char **argv)
     assign_particles(mpi_rank, mpi_size, &nptl_tot, &nptl_traj_tot,
             system_type, &nptl, nptl_accumulate);
 
+    // Initialize particles
     struct particles *ptl, *ptl_init;
     ptl = (struct particles*)malloc(sizeof(struct particles)*nptl);
     ptl_init = (struct particles*)malloc(sizeof(struct particles)*nptl);
-    initialize_partilces(mpi_rank, mpi_size, config_file_name, simul_domain,
-            nptl, vthe, system_type, nptl_accumulate, ptl, is_single_vel);
+    initialize_particles(mpi_rank, mpi_size, config_file_name, simul_domain,
+            nptl, vthe, charge_mass, system_type, nptl_accumulate, ptl,
+            is_single_vel);
     memcpy(ptl_init, ptl, sizeof(particles));
 
     get_spectrum_info(mpi_rank, config_file_name, &nbins, &nt_out);
 
-    /* Number of steps each particle is tracked. */
+    // Number of steps each particle is tracked.
     int *nsteps_ptl_tracking = (int *)malloc(sizeof(int)*nptl);
 
     double dt;
-    dt = 1E-6 * pmass;
-    adjust_dt_normI(&dt);
-    if (mpi_rank == 0) printf("%10.4e\n", dt);
+    dt = get_tracking_time_interval(mpi_rank, config_file_name, pmass);
+    if (system_type == 2) adjust_dt_normI(&dt);
     calc_energy_spectrum(mpi_rank, nptl, ptl, nbins, nt_out, pmass, bc_flag);
     save_particles_fields(mpi_rank, nptl, ptl, nptl_tot, nptl_accumulate,
             "data/particles_fields_init.h5", system_type);
-    set_ptl_params_tracking(bc_flag, charge_mass, charge_sign);
+    set_ptl_params_tracking(bc_flag, charge_mass);
 
+    // tracking particles
     int nsteps_output = 10;
     int *ntraj_accum;
     int traj_diagnose = 0;
@@ -106,23 +111,32 @@ int main(int argc, char **argv)
                 ptl_init);
     }
 
-    /* release_memory(ptl); */
-
-    if (system_type == 1) {
-        /* wire-loop current system */
-        free_config();
-    }
-    if (system_type == 2) {
-        free_vfield();
-    }
-    if (system_type == 3) {
-        free_vfield();
-        free_bfield();
-    }
     free(nsteps_ptl_tracking);
     free(ptl);
     free(ptl_init);
     free(nptl_accumulate);
+    switch (system_type) {
+        case 1:
+            free_config();
+            break;
+        case 2:
+            free_vfield();
+            break;
+        case 3:
+            free_vfield();
+            free_bfield();
+            break;
+        case 4:
+            free_efield();
+            free_bfield();
+            break;
+        default:
+            if (mpi_rank == 0) {
+                printf("Error system option: [%d]\n", system_type);
+            }
+            ierr = MPI_Finalize();
+            return -1;
+    }
     ierr = MPI_Finalize();
     return 0;
 }

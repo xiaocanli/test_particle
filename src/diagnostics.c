@@ -302,7 +302,7 @@ void save_particles_fields(int mpi_rank, int nptl, struct particles *ptl,
     hid_t memtype_emf, filetype_emf;
 
     /* Initialize data */
-    struct emfields *emf_ptl; /* emf at particles' position. */
+    struct emfields *emf_ptl; // emf at particles' position.
     emf_ptl = (struct emfields *)malloc(sizeof(emfields)*nptl);
     for (i=0; i<nptl; i++ ) {
         get_emf(ptl[i].x, ptl[i].y, ptl[i].z, ptl[i].t, &emf_ptl[i]);
@@ -447,6 +447,7 @@ void sort_particles_energy(int mpi_rank, int nptl, double pmass,
  *
  * Output:
  *  ntraj: the total trajectory points for current MPI process.
+ *  ntraj_accum: the accumulated trajectory points starting from mpi_rank = 0
  *  ptl_traj: particle structure array for trajectory diagnostics.
  ******************************************************************************/
 void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
@@ -468,9 +469,9 @@ void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
     *ntraj = 0;
     j = nptl - 1; /* Starting from the highest energy */
     for (i = 0; i < nptl_traj; i++) {
-        (*ntraj) += nsteps_ptl_tracking[j] / nsteps_output;
+        ntraj_accum[i] = (nsteps_ptl_tracking[j] - 1) / nsteps_output + 1;
+        (*ntraj) += ntraj_accum[i];
         memcpy(&ptl_traj[i], &ptl[j], sizeof(particles));
-        ntraj_accum[i] = nsteps_ptl_tracking[j] / nsteps_output;
         j -= interval;
     }
     for (i = 1; i < nptl_traj; i++) {
@@ -519,7 +520,7 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
     init_ptl_traj(nptl, nptl_traj, nsteps_ptl_tracking, ptl, &ntraj,
             ntraj_accum, ptl_traj);
 
-    /* The accumulation of particle trajectories in all MPI processes */
+    // The accumulation of particle trajectories in all MPI processes
     int *ntraj_accum_global = (int *)malloc(sizeof(int)*mpi_size);
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Gather(&ntraj, 1, MPI_INT, ntraj_accum_global, 1, MPI_INT,
@@ -549,7 +550,7 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
     int traj_diagnose = 1;
     particle_tracking_hybrid(mpi_rank, nptl_traj, dt, nbins, nt_out, bc_flag,
             nsteps_output, pmass, ntraj_accum, tracking_method, traj_diagnose,
-            nsteps_ptl_tracking, ptl_traj, ptl_time, ptl_init);
+            ptl_init, nsteps_ptl_tracking, ptl_traj, ptl_time);
 
     save_particles_fields(mpi_rank, ntraj, ptl_time,
             ntraj_accum_global[mpi_size-1], ntraj_accum_global,
@@ -642,29 +643,61 @@ void get_spectrum_info(int mpi_rank, char *config_file_name, int *nbins,
  *  ptl: current particle information.
  *
  * Output:
- *  drr, dpp, duu: diffusion coefficients.
+ *  drr: spatial diffusion coefficient
+ *  dxx: spatial diffusion coefficient along x-direction
+ *  dyy: spatial diffusion coefficient along y-direction
+ *  dzz: spatial diffusion coefficient along z-direction
+ *  dpp: momentum diffusion coefficient
+ *  duu: cosine of pitch angle diffusion coefficient
+ *  daa: pitch angle diffusion coefficient
+ *  dee: energy diffusion coefficient
  *****************************************************************************/
 void calc_diff_coeff(particles *ptl_init, particles *ptl, double dt,
-        double *drr, double *dpp, double *duu)
+        double *drr, double *dxx, double *dyy, double *dzz, double *dpp,
+        double *duu, double *daa, double *dee)
 {
-    double t, vx, vy, vz, vx0, vy0, vz0, gama, gama0;
+    double t, vx, vy, vz, vx0, vy0, vz0, gamma, gamma_init, theta, theta_init;
     t = ptl->t * 2 + dt;
     *drr = 0.0;
+    *dxx = 0.0;
+    *dyy = 0.0;
+    *dzz = 0.0;
     *dpp = 0.0;
     *duu = 0.0;
-    *drr = (pow(ptl_init->x - ptl->x, 2) + pow(ptl_init->y - ptl->y, 2) +
-           pow(ptl_init->z - ptl->z, 2)) / t;
-    gama = sqrt(1.0 + ptl->ux*ptl->ux + ptl->uy*ptl->uy + ptl->uz*ptl->uz);
-    vx = ptl->ux / gama;
-    vy = ptl->uy / gama;
-    vz = ptl->uz / gama;
-    gama0 = sqrt(1.0 + ptl_init->ux*ptl_init->ux +
+    *daa = 0.0;
+    *dee = 0.0;
+    *dxx = pow(ptl_init->x - ptl->x, 2) / t;
+    *dyy = pow(ptl_init->y - ptl->y, 2) / t;
+    *dzz = pow(ptl_init->z - ptl->z, 2) / t;
+    *drr = (*dxx) + (*dyy) + (*dzz);
+    *dpp = (pow(ptl_init->ux - ptl->ux, 2) + pow(ptl_init->uy - ptl->uy, 2) +
+           pow(ptl_init->uz - ptl->uz, 2)) / t;
+    gamma = sqrt(1.0 + ptl->ux*ptl->ux + ptl->uy*ptl->uy + ptl->uz*ptl->uz);
+    gamma_init = sqrt(1.0 + ptl_init->ux*ptl_init->ux +
             ptl_init->uy*ptl_init->uy + ptl_init->uz*ptl_init->uz);
-    vx0 = ptl_init->ux / gama0;
-    vy0 = ptl_init->uy / gama0;
-    vz0 = ptl_init->uz / gama0;
-    *dpp = (pow(gama*vx - gama0*vx0, 2) + pow(gama*vy - gama0*vy0, 2) +
-            pow(gama*vz - gama0*vz0, 2)) / t;
+    *dee = pow(gamma - gamma_init, 2) / t;
+    double mu, mu_init, abs_b, abs_u;
+    struct emfields emf_ptl, emf_ptl_init;
+    get_emf(ptl->x, ptl->y, ptl->z, ptl->t, &emf_ptl);
+    get_emf(ptl_init->x, ptl_init->y, ptl_init->z, ptl_init->t, &emf_ptl_init);
+    abs_b = sqrt(emf_ptl.Bx*emf_ptl.Bx + emf_ptl.By*emf_ptl.By +
+            emf_ptl.Bz*emf_ptl.Bz);
+    abs_u = sqrt(ptl->ux*ptl->ux + ptl->uy*ptl->uy + ptl->uz*ptl->uz);
+    mu = (emf_ptl.Bx*ptl->ux + emf_ptl.By*ptl->uy +
+          emf_ptl.Bz*ptl->uz) / (abs_b * abs_u);
+    abs_b = sqrt(emf_ptl_init.Bx*emf_ptl_init.Bx +
+                 emf_ptl_init.By*emf_ptl_init.By +
+                 emf_ptl_init.Bz*emf_ptl_init.Bz);
+    abs_u = sqrt(ptl_init->ux*ptl_init->ux +
+                 ptl_init->uy*ptl_init->uy +
+                 ptl_init->uz*ptl_init->uz);
+    mu_init = (emf_ptl_init.Bx*ptl_init->ux +
+               emf_ptl_init.By*ptl_init->uy +
+               emf_ptl_init.Bz*ptl_init->uz) / (abs_b * abs_u);
+    *duu = pow(mu - mu_init, 2) / t;
+    theta = acos(mu) * 180 / M_PI;
+    theta_init = acos(mu_init) * 180 / M_PI;
+    *daa = pow(theta - theta_init, 2) / t;
 }
 
 /******************************************************************************
@@ -673,40 +706,73 @@ void calc_diff_coeff(particles *ptl_init, particles *ptl, double dt,
  * Input:
  *  mpi_rank: the rank of current MPI process.
  *  nsteps_dcoeffs: the total output time steps for the diffusion coefficients
- *  drr, dpp, duu: the particle diffusion coefficients.
  *  fname: the filename for output.
- *
+ *  drr: spatial diffusion coefficient
+ *  dxx: spatial diffusion coefficient along x-direction
+ *  dyy: spatial diffusion coefficient along y-direction
+ *  dzz: spatial diffusion coefficient along z-direction
+ *  dpp: momentum diffusion coefficient
+ *  duu: cosine of pitch angle diffusion coefficient
+ *  daa: pitch angle diffusion coefficient
+ *  dee: energy diffusion coefficient
  ******************************************************************************/
 void collect_diff_coeffs(int mpi_rank, int nsteps_dcoeffs, double *drr,
-        double *dpp, double *duu, char *fname, int *nptl_remain)
+        double *dxx, double *dyy, double *dzz, double *dpp, double *duu,
+        double *daa, double *dee, char *fname, int *nptl_remain)
 {
     double *drr_global, *dpp_global, *duu_global;
+    double *dxx_global, *dyy_global, *dzz_global;
+    double *daa_global, *dee_global;
     int *nptl_remain_global;
     FILE *fp;
     int i;
     drr_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    dxx_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    dyy_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    dzz_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     dpp_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     duu_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    daa_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    dee_global = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     nptl_remain_global = (int *)calloc(nsteps_dcoeffs, sizeof(int));
     /* Reduce the spectrum to MPI process 0 */
     MPI_Reduce(drr, drr_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
+            0, MPI_COMM_WORLD);
+    MPI_Reduce(dxx, dxx_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
+            0, MPI_COMM_WORLD);
+    MPI_Reduce(dyy, dyy_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
+            0, MPI_COMM_WORLD);
+    MPI_Reduce(dzz, dzz_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
             0, MPI_COMM_WORLD);
     MPI_Reduce(dpp, dpp_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
             0, MPI_COMM_WORLD);
     MPI_Reduce(duu, duu_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
             0, MPI_COMM_WORLD);
+    MPI_Reduce(daa, daa_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
+            0, MPI_COMM_WORLD);
+    MPI_Reduce(dee, dee_global, nsteps_dcoeffs, MPI_DOUBLE, MPI_SUM,
+            0, MPI_COMM_WORLD);
     MPI_Reduce(nptl_remain, nptl_remain_global, nsteps_dcoeffs, MPI_INT,
             MPI_SUM, 0, MPI_COMM_WORLD);
     if (mpi_rank == 0 ) {
         fp = fopen(fname, "w");
+        fprintf(fp, "drr        dxx        dyy        dzz        dpp");
+        fprintf(fp, "        duu        daa        dee        nptl\n");
         for (i=0; i<nsteps_dcoeffs; i++) {
-            fprintf(fp, "%10.4e %10.4e %10.4e %d\n", drr_global[i],
-                    dpp_global[i], duu_global[i], nptl_remain_global[i]);
+            fprintf(fp, "%10.4e %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e %d\n",
+                    drr_global[i], dxx_global[i], dyy_global[i], dzz_global[i],
+                    dpp_global[i], duu_global[i], daa_global[i], dee_global[i],
+                    nptl_remain_global[i]);
         }
         fclose(fp);
     }
     free(drr_global);
+    free(dxx_global);
+    free(dyy_global);
+    free(dzz_global);
     free(dpp_global);
     free(duu_global);
+    free(daa_global);
+    free(dee_global);
     free(nptl_remain_global);
 }

@@ -68,30 +68,36 @@ void set_ptl_params_tracking(int pbc, double qm)
  * Particle tracking using fixed time steps.
  *
  * Input:
- *  nptl: particle number for this process.
- *  dt: time step for particle tracking.
- *  nbins: number of energy bins.
- *  nt_out: number of diagnostic time frames.
- *  traj_diagnose: flag for whether to do particle trajectory diagnostics.
- *  nsteps_ptl_tracking: the number of tracking steps for each particle.
+ *  nptl: particle number for this process
+ *  dt: time step for particle tracking
+ *  nbins: number of energy bins
+ *  nt_out: number of diagnostic time frames
+ *  traj_diagnose: flag for whether to do particle trajectory diagnostics
+ *  nsteps_ptl_tracking: the number of tracking steps for each particle
+ *  nsteps_output: number of time steps to output one trajectory point
+ *  pmass: particle mass
+ *  ntraj_accum: the accumulated trajectory points starting from mpi_rank = 0
+ *  ptl_init: initial particle information array
  *
  * Output:
- *  ptl: particles structure array will be updated.
- *  espectrum, espect_escape: spectra summed over all threads.
- *  espect_private, espect_escape_private: spectra in each thread.
- *  espect_tot: spectra summed over all MPI process.
+ *  nsteps_ptl_tracking: total number of tracking steps for each particle
+ *  ptl: particles structure array will be updated
+ *  espect_tot: spectra summed over all MPI process
+ *  espectrum, espect_escape: spectra summed over all threads
+ *  espect_private, espect_escape_private: spectra in each thread
+ *  ptl_time: particle trajectory points changing with time
  ******************************************************************************/
-void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
-        int traj_diagnose, int nsteps_output, double pmass,
-        int *nsteps_ptl_tracking, particles *ptl, int *ntraj_accum,
+void particle_tracking_fixed_time_step(int mpi_rank, int nptl, double dt,
+        int nbins, int nt_out, int traj_diagnose, int nsteps_output, double pmass,
+        int *ntraj_accum, particles *ptl_init, int *nsteps_ptl_tracking, particles *ptl,
         double espectrum[][nbins], double espect_tot[][nbins],
         double espect_escape[][nbins], double espect_private[][nbins*nt_out],
-        double espect_escape_private[][nbins*nt_out], particles *ptl_time,
-        particles *ptl_init, int mpi_rank)
+        double espect_escape_private[][nbins*nt_out], particles *ptl_time)
 {
     int estep, einterval_t, ptl_id;
     int *ntraj_diagnostics_points_array;
-    double *drr, *dpp, *duu;
+    double *drr, *dpp, *duu, *dee, *daa;
+    double *dxx, *dyy, *dzz;
     int *nptl_remain_time; // Particles remain in the system
     int i, nsteps_dcoeffs;
     estep = simul_domain.tmax / dt;
@@ -101,8 +107,13 @@ void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
     nsteps_dcoeffs = estep / tinterval_dcoeffs + 1;
     printf("Time step for diffusion coefficients: %d\n", nsteps_dcoeffs);
     drr = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    dxx = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    dyy = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    dzz = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     dpp = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     duu = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    dee = (double *)calloc(nsteps_dcoeffs, sizeof(double));
+    daa = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     nptl_remain_time = (int *)calloc(nsteps_dcoeffs, sizeof(int));
     for (i = 0; i < nsteps_dcoeffs; i++) {
         nptl_remain_time[i] = nptl;
@@ -144,26 +155,33 @@ void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
             /*         traj_diagnose, ptl, nsteps_ptl_tracking, */
             /*         espect_private, espect_escape_private); */
         } else {
-            MultiStepsParticleTrackingOmp(nptl, dt, tid, 1, estep, nbins,
+            particle_tracking_multi_steps_openmp(nptl, dt, tid, 1, estep, nbins,
                     nt_out, einterval_t, traj_diagnose, nsteps_output, pmass,
-                    ntraj_accum, ntraj_diagnostics_points_array, ptl,
-                    nsteps_ptl_tracking, espect_private,
-                    espect_escape_private, ptl_time, ptl_init, drr, dpp, duu,
-                    nptl_remain_time, mpi_rank);
+                    ntraj_accum, ptl_init, ntraj_diagnostics_points_array, ptl,
+                    nsteps_ptl_tracking, espect_private, espect_escape_private,
+                    ptl_time, nptl_remain_time, drr, dxx, dyy, dzz, dpp, duu, daa,
+                    dee);
         }
-        GatherParticleSpectra(num_threads, nbins, nt_out, espectrum,
+        gather_particle_spectra_openmp(num_threads, nbins, nt_out, espectrum,
                 espect_private, espect_escape, espect_escape_private);
     }
 
-    collect_diff_coeffs(mpi_rank, nsteps_dcoeffs, drr, dpp, duu,
-            "data/diff_coeffs.dat", nptl_remain_time);
+    if (traj_diagnose == 0) {
+        collect_diff_coeffs(mpi_rank, nsteps_dcoeffs, drr, dxx, dyy, dzz, dpp,
+                duu, daa, dee, "data/diff_coeffs.dat", nptl_remain_time);
+    }
 
     if (traj_diagnose == 1) {
         free(ntraj_diagnostics_points_array);
     }
     free(drr);
+    free(dxx);
+    free(dyy);
+    free(dzz);
     free(dpp);
     free(duu);
+    free(dee);
+    free(daa);
     free(nptl_remain_time);
 }
 
@@ -200,7 +218,7 @@ void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
 /*     starting = 1; */
 /*     ending = floor(((current_slice+1.0)*vfield_dt)/dt); */
 /*     for (current_slice = 1; current_slice < simul_grid.nt; current_slice++) { */
-/*         MultiStepsParticleTrackingOmp(nptl, dt, tid, starting, ending, */
+/*         particle_tracking_multi_steps_openmp(nptl, dt, tid, starting, ending, */
 /*             einterval_t, traj_diagnose, ptl, nsteps_ptl_tracking, */
 /*             espect_private, espect_escape_private); */
 /*         starting = ending + 1; */
@@ -240,34 +258,54 @@ void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
  * OpenMP.
  *
  * Input:
- *  nptl: particle number for this process.
- *  dt: time step for particle tracking.
- *  tid: thread ID.
- *  sstep: starting step for particle tracking.
- *  estep: ending step for particle tracking.
- *  einterval_t: time interval for energy spectra diagnostics.
- *  traj_diagnose: flag for whether to do particle trajectory diagnostics.
+ *  nptl: particle number for this process
+ *  dt: time step for particle tracking
+ *  tid: thread ID
+ *  sstep: starting step for particle tracking
+ *  estep: ending step for particle tracking
+ *  nbins: number of energy bins
+ *  nt_out: number of diagnostic time frames
+ *  einterval_t: time interval for energy spectra diagnostics
+ *  traj_diagnose: flag for whether to do particle trajectory diagnostics
+ *  nsteps_output: number of time steps to output one trajectory point
+ *  pmass: particle mass
+ *  ntraj_accum: the accumulated trajectory points starting from mpi_rank = 0
+ *  ptl_init: initial particle information array
  *
  * Input & Output:
- *  ptl: particles struct array will be updated.
- *  nsteps_ptl_tracking: total tracking steps up to now for each particle.
- *  espect_private, espect_escape_private: particle energy spectra inside the
- *      box and escaping the box for current thread.
+ *  ntraj_diagnostics_points_array: number of trajectory points of particles
+ *      with trajectory diagnostics
+ *  ptl: particles struct array will be updated
+ *  nsteps_ptl_tracking: total tracking steps up to now for each particle
+ *  espect_private: particle energy spectra inside the box
+ *  espect_escape_private: particle energy spectra escaping the box for current thread
+ *  ptl_time: particle trajectory points changing with time
+ *  nptl_remain_time: number of particles remain in current MPI process
+ *  drr: spatial diffusion coefficient
+ *  dxx: spatial diffusion coefficient along x-direction
+ *  dyy: spatial diffusion coefficient along y-direction
+ *  dzz: spatial diffusion coefficient along z-direction
+ *  dpp: momentum diffusion coefficient
+ *  duu: cosine of pitch angle diffusion coefficient
+ *  daa: pitch angle diffusion coefficient
+ *  dee: energy diffusion coefficient
  ******************************************************************************/
-void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
+void particle_tracking_multi_steps_openmp(int nptl, double dt, int tid, int sstep,
         int estep, int nbins, int nt_out, int einterval_t, int traj_diagnose,
-        int nsteps_output, double pmass, int *ntraj_accum,
-        int *ntraj_diagnostics_points_array, struct particles *ptl,
+        int nsteps_output, double pmass, int *ntraj_accum, particles *ptl_init,
+        int *ntraj_diagnostics_points_array, particles *ptl,
         int *nsteps_ptl_tracking, double espect_private[][nbins*nt_out],
         double espect_escape_private[][nbins*nt_out], particles *ptl_time,
-        particles *ptl_init, double *drr, double *dpp, double *duu,
-        int *nptl_remain_time, int mpi_rank)
+        int *nptl_remain_time, double *drr, double *dxx, double *dyy, double *dzz,
+        double *dpp, double *duu, double *daa, double *dee)
 {
     int ntp, iescape_pre, iescape_after;
-    double drr_single, dpp_single, duu_single;
+    double drr_single, dpp_single, duu_single, daa_single, dee_single;
+    double dxx_single, dyy_single, dzz_single;
     int i, j, tmp;
-#pragma omp for private(j,ntp,iescape_pre,iescape_after, drr_single,\
-        dpp_single, duu_single)
+#pragma omp for private(j, ntp, iescape_pre, iescape_after, drr_single, \
+        dxx_single, dyy_single, dzz_single, dpp_single, duu_single, \
+        daa_single, dee_single)
     for (i = 0; i < nptl; i++) {
         iescape_pre = 0; // Default: not escaped yet.
         particle_bc(&ptl[i].x, &ptl[i].y, &ptl[i].z, &iescape_pre);
@@ -277,14 +315,13 @@ void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
         int ntraj_offset_local = 0;
         int ntraj_diagnostics_points = 1;
         int tstep_dcoeffs; // Diagnostics point for diffusion coefficients
-        if (traj_diagnose == 1) {
-            /* Trajectory diagnostics. */
+        if (traj_diagnose == 1) {  // Trajectory diagnostics.
             if (i != 0) {
                 ntraj_offset_local = ntraj_accum[i-1];
             }
             ntraj_diagnostics_points = ntraj_diagnostics_points_array[i];
         }
-        tstep_dcoeffs = 0;
+        tstep_dcoeffs = 1;
         if (iescape_pre) {
 #pragma omp atomic
             nptl_remain_time[tstep_dcoeffs]--;
@@ -293,12 +330,13 @@ void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
             drr_single = 0.0;
             dpp_single = 0.0;
             duu_single = 0.0;
-            SingleStepParticleTrackingOMP(i, j, dt, tid, einterval_t,
-                    traj_diagnose, nbins, nt_out, nsteps_output, pmass, &ntp,
-                    ptl, &iescape_pre, &iescape_after, ntraj_offset_local,
-                    &ntraj_diagnostics_points, nsteps_ptl_tracking,
-                    espect_private, espect_escape_private, ptl_time, ptl_init,
-                    &drr_single, &dpp_single, &duu_single);
+            particle_tracking_single_step_openmp(i, j, dt, tid, einterval_t,
+                    traj_diagnose, nbins, nt_out, nsteps_output, pmass, ptl_init,
+                    ntraj_offset_local, &ntp, ptl, &iescape_pre, &iescape_after, 
+                    &ntraj_diagnostics_points, nsteps_ptl_tracking, espect_private,
+                    espect_escape_private, ptl_time, &drr_single, &dxx_single,
+                    &dyy_single, &dzz_single, &dpp_single, &duu_single, &daa_single,
+                    &dee_single);
             if (traj_diagnose == 1) {
                 ntraj_diagnostics_points_array[i] = ntraj_diagnostics_points;
             }
@@ -306,10 +344,19 @@ void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
 #pragma omp atomic
                 drr[tstep_dcoeffs] += drr_single;
 #pragma omp atomic
+                dxx[tstep_dcoeffs] += dxx_single;
+#pragma omp atomic
+                dyy[tstep_dcoeffs] += dyy_single;
+#pragma omp atomic
+                dzz[tstep_dcoeffs] += dzz_single;
+#pragma omp atomic
                 dpp[tstep_dcoeffs] += dpp_single;
 #pragma omp atomic
                 duu[tstep_dcoeffs] += duu_single;
 #pragma omp atomic
+                daa[tstep_dcoeffs] += daa_single;
+#pragma omp atomic
+                dee[tstep_dcoeffs] += dee_single;
                 tstep_dcoeffs++;
             }
             if (iescape_after && j % tinterval_dcoeffs == 0) {
@@ -328,34 +375,48 @@ void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
  *
  * Input:
  *  iptl: particle index
- *  it: time point of particle tracking.
- *  dt: time step for particle tracking.
+ *  it: time point of particle tracking
+ *  dt: time step for particle tracking
+ *  tid: thread ID
+ *  einterval_t: time interval for energy spectra diagnostics
+ *  traj_diagnose: flag for whether to do particle trajectory diagnostics
+ *  nbins: number of energy bins
+ *  nt_out: number of diagnostic time frames
+ *  nsteps_output: number of time steps to output one trajectory point
+ *  pmass: particle mass
+ *  ptl_init: initial particle information array
  *  ntraj_offset_local: since particle trajectory diagnostics results are
  *      saved in the same array, we need to figure out the starting point
- *      for the data in current thread in this array.
- *  tid: thread ID.
- *  einterval_t: time interval for energy spectra diagnostics.
- *  traj_diagnose: flag for whether to do particle trajectory diagnostics.
+ *      for the data in current thread in this array
  *
  * Input & Output:
- *  ntp: Current # of output time points for energy spectra diagnostics.
- *  ptl: particles struct array will be updated.
+ *  ntp: Current # of output time points for energy spectra diagnostics
+ *  ptl: particles struct array will be updated
  *  iescape_pre, iescape_after: check if particle escape from the box
- *      before and after this step.
+ *      before and after this step
  *  ntraj_diagnostics_points: how many time points have been output for particle trajectory
- *      diagnostics.
- *  nsteps_ptl_tracking: total tracking steps up to now for each particle.
+ *      diagnostics
+ *  nsteps_ptl_tracking: total tracking steps up to now for each particle
  *  espect_private, espect_escape_private: particle energy spectra inside the
- *      box and escaping the box for current thread.
+ *      box and escaping the box for current thread
+ *  ptl_time: particle trajectory points changing with time
+ *  drr: spatial diffusion coefficient
+ *  dxx: spatial diffusion coefficient along x-direction
+ *  dyy: spatial diffusion coefficient along y-direction
+ *  dzz: spatial diffusion coefficient along z-direction
+ *  dpp: momentum diffusion coefficient
+ *  duu: cosine of pitch angle diffusion coefficient
+ *  daa: pitch angle diffusion coefficient
+ *  dee: energy diffusion coefficient
  ******************************************************************************/
-void SingleStepParticleTrackingOMP(int iptl, int it, double dt, int tid,
-        int einterval_t, int traj_diagnose, int nbins, int nt_out,
-        int nsteps_output, double pmass, int *ntp, particles *ptl,
-        int *iescape_pre, int *iescape_after, int ntraj_offset_local,
-        int *ntraj_diagnostics_points, int *nsteps_ptl_tracking,
-        double espect_private[][nbins*nt_out],
+void particle_tracking_single_step_openmp(int iptl, int it, double dt, int tid,
+        int einterval_t, int traj_diagnose, int nbins, int nt_out, int nsteps_output,
+        double pmass, particles *ptl_init, int ntraj_offset_local, int *ntp, particles *ptl,
+        int *iescape_pre, int *iescape_after, int *ntraj_diagnostics_points,
+        int *nsteps_ptl_tracking, double espect_private[][nbins*nt_out],
         double espect_escape_private[][nbins*nt_out], particles *ptl_time,
-        particles *ptl_init, double *drr, double *dpp, double *duu)
+        double *drr, double *dxx, double *dyy, double *dzz, double *dpp,
+        double *duu, double *daa, double *dee)
 {
     int offset;
     /* Check if the particle already exit the box. */
@@ -365,7 +426,8 @@ void SingleStepParticleTrackingOMP(int iptl, int it, double dt, int tid,
         particle_bc(&ptl[iptl].x, &ptl[iptl].y, &ptl[iptl].z, iescape_after);
         nsteps_ptl_tracking[iptl] += 1;
         if (*iescape_after == 0 && it % tinterval_dcoeffs == 0) {
-            calc_diff_coeff(ptl_init, ptl, dt, drr, dpp, duu);
+            calc_diff_coeff(&ptl_init[iptl], &ptl[iptl], dt, drr, dxx, dyy,
+                    dzz, dpp, duu, daa, dee);
         }
         /*
          * Trajectory diagnostics. nsteps_output is the time step
@@ -406,7 +468,7 @@ void SingleStepParticleTrackingOMP(int iptl, int it, double dt, int tid,
  * Output:
  *  espectrum, espect_escape: spectra summed over all threads.
  ******************************************************************************/
-void GatherParticleSpectra(int num_threads, int nbins, int nt_out,
+void gather_particle_spectra_openmp(int num_threads, int nbins, int nt_out,
         double espectrum[][nbins], double espect_private[][nbins*nt_out],
         double espect_escape[][nbins], double espect_escape_private[][nbins*nt_out])
 {
@@ -569,34 +631,32 @@ void init_spectrum(int nbins, int nt_out, double espectrum [][nbins])
  * The time evolution of particle energy spectra are tracked.
  *
  * Input:
- *  mpi_rank: the rank of current MPI process.
- *  nptl: particle number for this process.
- *  dt: time step for particle tracking.
- *  nbins: number of energy bins.
- *  nt_out: number of diagnostic time frames.
- *  bc_flag: boundary condition flag. 0 for periodic; 1 for open.
- *  nsteps_output: output the total trajectory points step by step.
- *  pmass: proton mass.
- *  ntraj_accum: number of trajectory points for all particles in current
- *               MPI process
- *  tracking_method: 0 for fixed step. 1 for adaptive step.
- *  traj_diagnose: flag for whether to do trajectory diagnostics.
- *  simul_domain: the simulation domain information.
- *  ptl_init: initial particle information.
+ *  mpi_rank: the rank of current MPI process
+ *  nptl: particle number for this process
+ *  dt: time step for particle tracking
+ *  nbins: number of energy bins
+ *  nt_out: number of diagnostic time frames
+ *  bc_flag: boundary condition flag. 0 for periodic; 1 for open
+ *  nsteps_output: number of time steps to output one trajectory point
+ *  pmass: particle mass
+ *  ntraj_accum: the accumulated trajectory points starting from mpi_rank = 0
+ *  tracking_method: 0 for fixed step. 1 for adaptive step
+ *  traj_diagnose: flag for whether to do trajectory diagnostics
+ *  ptl_init: initial particle information
  *
  * Output:
- *  espectrum: energy spectrum of particles.
- *  ptl: particles struct array will be updated.
+ *  espectrum: energy spectrum of particles (written to the disk)
+ *  ptl: particles struct array will be updated
  *
  * Input & output:
- *  nsteps_ptl_tracking: total number of tracking steps for each particle.
+ *  nsteps_ptl_tracking: total number of tracking steps for each particle
  *  ptl_time: particle trajectory points changing with time
  ******************************************************************************/
 void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
         int nt_out, int bc_flag, int nsteps_output, double pmass,
         int *ntraj_accum, int tracking_method, int traj_diagnose,
-        int *nsteps_ptl_tracking, particles *ptl, particles *ptl_time,
-        particles *ptl_init)
+        particles *ptl_init, int *nsteps_ptl_tracking, particles *ptl,
+        particles *ptl_time)
 {
     double espectrum[nt_out][nbins], espect_tot[nt_out][nbins];
     double espect_escape[nt_out][nbins];  // Energy spectrum for escaping particles.
@@ -610,10 +670,10 @@ void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
     double espect_escape_private[num_threads+1][nbins*nt_out];
 
     if (tracking_method == 0) {
-        particle_tracking_fixed(nptl, dt, nbins, nt_out, traj_diagnose,
-                nsteps_output, pmass, nsteps_ptl_tracking, ptl, ntraj_accum,
-                espectrum, espect_tot, espect_escape, espect_private,
-                espect_escape_private, ptl_time, ptl_init, mpi_rank);
+        particle_tracking_fixed_time_step(mpi_rank, nptl, dt, nbins, nt_out,
+                traj_diagnose, nsteps_output, pmass, ntraj_accum, ptl_init,
+                nsteps_ptl_tracking, ptl, espectrum, espect_tot, espect_escape,
+                espect_private, espect_escape_private, ptl_time);
     } else if (tracking_method == 1) {
         /* particle_tracking_adaptive(nptl, traj_diagnose, ptl, espectrum, */
         /*         espect_tot, espect_escape, espect_private, espect_escape_private); */

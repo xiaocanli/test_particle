@@ -46,41 +46,40 @@ void set_ptl_params_tracking(int pbc, double qm);
 void cross_product(double beta_x, double beta_y, double beta_z, double Bx,
         double By, double Bz, double* Cx, double* Cy, double* Cz);
 
-void SingleStepParticleTrackingOMP(int iptl, int it, double dt, int tid,
-        int einterval_t, int traj_diagnose, int nbins, int nt_out,
-        int nsteps_output, double pmass, int *ntp, particles *ptl,
-        int *iescape_pre, int *iescape_after, int ntraj_offset_local,
-        int *ntraj_diagnostics_points, int *nsteps_ptl_tracking,
-        double espect_private[][nbins*nt_out], 
+void particle_tracking_single_step_openmp(int iptl, int it, double dt, int tid,
+        int einterval_t, int traj_diagnose, int nbins, int nt_out, int nsteps_output,
+        double pmass, particles *ptl_init, int ntraj_offset_local, int *ntp, particles *ptl,
+        int *iescape_pre, int *iescape_after, int *ntraj_diagnostics_points,
+        int *nsteps_ptl_tracking, double espect_private[][nbins*nt_out],
         double espect_escape_private[][nbins*nt_out], particles *ptl_time,
-        particles *ptl_init, double *drr, double *dpp, double *duu);
+        double *drr, double *dxx, double *dyy, double *dzz, double *dpp,
+        double *duu, double *daa, double *dee);
 
-void MultiStepsParticleTrackingOmp(int nptl, double dt, int tid, int sstep,
+void particle_tracking_multi_steps_openmp(int nptl, double dt, int tid, int sstep,
         int estep, int nbins, int nt_out, int einterval_t, int traj_diagnose,
-        int nsteps_output, double pmass, int *ntraj_accum,
-        int *ntraj_diagnostics_points_array, struct particles *ptl,
-        int *nsteps_ptl_tracking, double espect_private[][nbins*nt_out], 
+        int nsteps_output, double pmass, int *ntraj_accum, particles *ptl_init,
+        int *ntraj_diagnostics_points_array, particles *ptl,
+        int *nsteps_ptl_tracking, double espect_private[][nbins*nt_out],
         double espect_escape_private[][nbins*nt_out], particles *ptl_time,
-        particles *ptl_init, double *drr, double *dpp, double *duu,
-        int *nptl_remain_time, int mpi_rank);
+        int *nptl_remain_time, double *drr, double *dxx, double *dyy, double *dzz,
+        double *dpp, double *duu, double *daa, double *dee);
 
-void particle_tracking_fixed(int nptl, double dt, int nbins, int nt_out,
-        int traj_diagnose, int nsteps_output, double pmass,
-        int *nsteps_ptl_tracking, particles *ptl, int *ntraj_accum,
+void particle_tracking_fixed_time_step(int mpi_rank, int nptl, double dt,
+        int nbins, int nt_out, int traj_diagnose, int nsteps_output, double pmass,
+        int *ntraj_accum, particles *ptl_init, int *nsteps_ptl_tracking, particles *ptl,
         double espectrum[][nbins], double espect_tot[][nbins],
         double espect_escape[][nbins], double espect_private[][nbins*nt_out],
-        double espect_escape_private[][nbins*nt_out], particles *ptl_time,
-        particles *ptl_init, int mpi_rank);
+        double espect_escape_private[][nbins*nt_out], particles *ptl_time);
 
-void GatherParticleSpectra(int num_threads, int nbins, int nt_out,
+void gather_particle_spectra_openmp(int num_threads, int nbins, int nt_out,
         double espectrum[][nbins], double espect_private[][nbins*nt_out],
         double espect_escape[][nbins], double espect_escape_private[][nbins*nt_out]);
 
 void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
         int nt_out, int bc_flag, int nsteps_output, double pmass,
         int *ntraj_accum, int tracking_method, int traj_diagnose,
-        int *nsteps_ptl_tracking, particles *ptl, particles *ptl_time,
-        particles *ptl_init);
+        particles *ptl_init, int *nsteps_ptl_tracking, particles *ptl,
+        particles *ptl_time);
 
 double get_tracking_time_interval(int mpi_rank, char *config_file_name,
         double pmass);

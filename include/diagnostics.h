@@ -55,7 +55,9 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
         int bc_flag, int tracking_method, particles *ptl_init);
 
 void calc_diff_coeff(particles *ptl_init, particles *ptl, double dt,
-        double *drr, double *dpp, double *duu);
+        double *drr, double *dxx, double *dyy, double *dzz, double *dpp,
+        double *duu, double *daa, double *dee);
 
-void collect_diff_coeffs(int mpi_rank, int estep, double *drr, double *dpp,
-        double *duu, char *fname, int *nptl_remain);
+void collect_diff_coeffs(int mpi_rank, int nsteps_dcoeffs, double *drr,
+        double *dxx, double *dyy, double *dzz, double *dpp, double *duu,
+        double *daa, double *dee, char *fname, int *nptl_remain);

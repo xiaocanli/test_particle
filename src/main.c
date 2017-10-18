@@ -81,7 +81,7 @@ int main(int argc, char **argv)
     initialize_particles(mpi_rank, mpi_size, config_file_name, simul_domain,
             nptl, vthe, charge_mass, system_type, nptl_accumulate, ptl,
             is_single_vel);
-    memcpy(ptl_init, ptl, sizeof(particles));
+    memcpy(ptl_init, ptl, sizeof(particles) * nptl);
 
     get_spectrum_info(mpi_rank, config_file_name, &nbins, &nt_out);
 
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
     particles *ptl_time;
     particle_tracking_hybrid(mpi_rank, nptl, dt, nbins, nt_out, bc_flag,
             nsteps_output, pmass, ntraj_accum, tracking_method, traj_diagnose,
-            nsteps_ptl_tracking, ptl, ptl_time, ptl_init);
+            ptl_init, nsteps_ptl_tracking, ptl, ptl_time);
     if (is_traj_diagnostic) {
         trajectory_diagnostics(mpi_rank, mpi_size, nptl, dt, pmass,
                 nptl_traj_tot, system_type, ptl, nptl_accumulate,
@@ -116,6 +116,8 @@ int main(int argc, char **argv)
     free(ptl_init);
     free(nptl_accumulate);
     switch (system_type) {
+        case 0:
+            break;
         case 1:
             free_config();
             break;

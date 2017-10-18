@@ -319,8 +319,10 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
     switch (system_type) {
         case 0:
             if (mpi_rank == 0) {
-                printf("Test system. All fields are calculated analytically.");
+                printf("Test system. All fields are calculated analytically.\n");
             }
+            set_variables_tracking(&simul_grid, &simul_domain, system_type,
+                    multi_tframe);
             break;
         case 1:
             /* Wire-loop current system. */

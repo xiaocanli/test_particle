@@ -37,11 +37,6 @@ void assign_particles(int mpi_rank, int mpi_size, int *nptl_tot,
         *nptl_traj_tot = (*nptl_tot);
     }
 
-    if (system_type == 0) {
-        /* test system. */
-        *nptl_tot = (*nptl_traj_tot);
-    }
-
     particle_broadcast(mpi_rank, mpi_size, *nptl_tot, nptl, nptl_accumulate);
     if (mpi_rank == 0) {
         printf("MPI process %d will trace %d particles. \n",
@@ -322,14 +317,13 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
     uthe = vthe / sqrt(1.0 - vthe * vthe);  // gamma * v
     srand48((unsigned)time(NULL)+mpi_rank*mpi_size);
     if (system_type == 0) {
-        double nvthe = 100.0;
         for (i = 0; i < nptl; i++) {
-            ptl[i].x = 0.0;
-            ptl[i].y = 0.0;
-            ptl[i].z = 0.0;
+            ptl[i].x = (xmax-xmin)*drand48() + xmin;
+            ptl[i].y = (ymax-ymin)*drand48() + ymin;
+            ptl[i].z = (zmax-zmin)*drand48() + zmin;
             ptl[i].qm = charge_mass;
-            ptl[i].ux = nvthe*(i+1) * uthe / nptl;
-            ptl[i].uy = nvthe*(i+1) * uthe / nptl;
+            ptl[i].ux = (i+1) * uthe / nptl;
+            ptl[i].uy = (i+1) * uthe / nptl;
             ptl[i].uz = 0.0;
             ptl[i].t = 0.0;
         }

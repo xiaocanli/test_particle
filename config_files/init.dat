@@ -1,6 +1,6 @@
 ---------------------------- Particle information ----------------------------
 Total number of particles: 128
-Particle temperature: 1000000.0
+Particle thermal speed (in light speed): 0.2
 Single velocity: 1
 Mass: 1.0
 Charge: 1.0
@@ -11,23 +11,23 @@ Number of particles for trajectory diagnostics: 128
 ----------------------------- Domain information -----------------------------
 ---- particle injection domain -----
 xmin_ptl = 0.0
-xmax_ptl = 2.5
+xmax_ptl = 750.0
 ymin_ptl = 0.0
-ymax_ptl = 2.5
+ymax_ptl = 375.0
 zmin_ptl = 0.0
-zmax_ptl = 2.5
+zmax_ptl = 312.5
 --------- simulation domain --------
 xmin = 0.0
-xmax = 7.5
+xmax = 750.0
 ymin = 0.0
-ymax = 7.5
+ymax = 375.0
 zmin = 0.0
-zmax = 7.5
+zmax = 312.5
 ------------------------------------------------------------------------------
 
 --------------------------------- System info --------------------------------
-0: test, 1: wlcs, 2: forcefree 3: MHD+test particle
-Flag for the system to use: 1
+0: test, 1: wlcs, 2: forcefree 3: MHD+test particle 4: PIC fields+test particle
+Flag for the system to use: 4
 Number of WLCSs: 1
 Configuration file name: config_wlcs.dat
 Configuration file name: init8.dat
@@ -42,21 +42,24 @@ Normalized B(Gauss): 1.0
 Total tracking time (s): 10.0
 0 for fixed step, 1 for adaptive
 Tracking method to use: 0
+Tracking time step (for electrons): 1E-5
 ------------------------------------------------------------------------------
 
 -------------------------------- Fields arrays -------------------------------
-x dimension(nx): 256
-y dimension(ny): 256
-z dimension(nz): 256
+x dimension(nx): 3027
+y dimension(ny): 1536
+z dimension(nz): 1280
 time slices(nt): 16
-Velocity field normalization (in light speed): 0.001
+Velocity field normalization (in light speed): 1.0
 Magnetic field normalization (in Gauss): 1.0
 If using multiple time slices: 0
+File path: /global/cscratch1/sd/xiaocan/3D-Lx150-bg0.2-150ppc-2048KNL/test_data/
+Initial time frame: 22170
 ------------------------------------------------------------------------------
 
 ----------------------------- Boundary conditions ----------------------------
 0: periodic 1: open 2: no boundary
-BC for particles: 2
+BC for particles: 0
 ------------------------------------------------------------------------------
 
 ------------------------------ Check points info -----------------------------

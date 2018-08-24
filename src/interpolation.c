@@ -38,20 +38,24 @@ void grid_indices(double x, double y, double z, double t, int *ix1, int *iy1,
         double *dx, double *dy, double *dz, double *dt)
 {
     int nx, ny, nz;
+    double xmin, ymin, zmin;
     nx = simul_grid.nx;
     ny = simul_grid.ny;
     nz = simul_grid.nz;
+    xmin = simul_domain.xmin;
+    ymin = simul_domain.ymin;
+    zmin = simul_domain.zmin;
     //nt = simul_grid.nt;
     /* left and right grid indices */
-    *ix1 = floor(x/simul_grid.dx);
-    *iy1 = floor(y/simul_grid.dy);
-    *iz1 = floor(z/simul_grid.dz);
+    *ix1 = floor((x - xmin)/simul_grid.dx);
+    *iy1 = floor((y - ymin)/simul_grid.dy);
+    *iz1 = floor((z - zmin)/simul_grid.dz);
     *ix2 = *ix1 + 1;
     *iy2 = *iy1 + 1;
     *iz2 = *iz1 + 1;
-    *dx = x/simul_grid.dx - (*ix1);
-    *dy = y/simul_grid.dy - (*iy1);
-    *dz = z/simul_grid.dz - (*iz1);
+    *dx = (x - xmin)/simul_grid.dx - (*ix1);
+    *dy = (y - ymin)/simul_grid.dy - (*iy1);
+    *dz = (z - zmin)/simul_grid.dz - (*iz1);
    
     /* boundary conditions */
     if (x > simul_domain.xmax) {

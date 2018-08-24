@@ -6,6 +6,9 @@
 typedef struct particles{
     double x, y, z, qm;
     double ux, uy, uz, t; // u is gamma*v
+    double xshift; // shift along x different boundary conditions
+    double yshift;
+    double zshift;
 } particles;
 #endif
 

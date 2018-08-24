@@ -30,9 +30,9 @@
 #include "tracking.h"
 
 double emin, emax, logemin, logemax, logde;
-/* All of the particle trajectories are output in nsteps_output frames */
-/* init_ptl_traj may update it depending on the maximum particle tracking steps */
-int nsteps_output = 10;
+/* /1* All of the particle trajectories are output in nsteps_output frames *1/ */
+/* /1* init_ptl_traj may update it depending on the maximum particle tracking steps *1/ */
+/* int nsteps_output = 10; */
 
 
 /******************************************************************************
@@ -123,6 +123,7 @@ void calc_energy_spectrum(int mpi_rank, int nptl, struct particles *ptl,
         free(espect_tot);
         free(ebins);
         free(einterval);
+        printf("Finished accumulating particle energy spectrum.\n");
     }
     free(espectrum);
 }
@@ -451,7 +452,8 @@ void sort_particles_energy(int mpi_rank, int nptl, double pmass,
  *  ptl_traj: particle structure array for trajectory diagnostics.
  ******************************************************************************/
 void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
-        particles *ptl, int *ntraj, int *ntraj_accum, particles *ptl_traj)
+        particles *ptl, int *nsteps_output, int *ntraj, int *ntraj_accum,
+        particles *ptl_traj)
 {
     int i, j, interval, ntraj_max;
     interval = nptl / nptl_traj;
@@ -463,13 +465,13 @@ void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
         }
     }
     if (ntraj_max > MAX_TP) {
-        nsteps_output = nsteps_output * ((double)ntraj_max)/MAX_TP;
+        *nsteps_output = (*nsteps_output) * ((double)ntraj_max)/MAX_TP;
     }
 
     *ntraj = 0;
     j = nptl - 1; /* Starting from the highest energy */
     for (i = 0; i < nptl_traj; i++) {
-        ntraj_accum[i] = (nsteps_ptl_tracking[j] - 1) / nsteps_output + 1;
+        ntraj_accum[i] = (nsteps_ptl_tracking[j] - 1) / (*nsteps_output) + 1;
         (*ntraj) += ntraj_accum[i];
         memcpy(&ptl_traj[i], &ptl[j], sizeof(particles));
         j -= interval;
@@ -494,13 +496,15 @@ void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
  *  nsteps_ptl_tracking: the number of tracking steps for each particle.
  *  nbins: number of energy bins.
  *  nt_out: number of diagnostic time frames.
+ *  nsteps_output: time step interval for trajectory diagnostics. It may be
+ *                 updated if total number of trajectories points are too large.
  *  bc_flag: boundary condition flag. 0 for periodic; 1 for open.
  *  tracking_method: 0 for fixed step. 1 for adaptive step.
  ******************************************************************************/
 void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
         double pmass, int nptl_traj_tot, int system_type, struct particles *ptl,
         int *nptl_accumulate, int *nsteps_ptl_tracking, int nbins, int nt_out,
-        int bc_flag, int tracking_method, particles *ptl_init)
+        int *nsteps_output, int bc_flag, int tracking_method, particles *ptl_init)
 {
     int i, nptl_traj, ntraj;
     int ntraj_offset_local;
@@ -517,8 +521,8 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
         (struct particles *)malloc(sizeof(particles)*nptl_traj);
     // Number of trajectory points for all particles in current MPI process
     int *ntraj_accum = (int *)malloc(sizeof(int)*nptl_traj);
-    init_ptl_traj(nptl, nptl_traj, nsteps_ptl_tracking, ptl, &ntraj,
-            ntraj_accum, ptl_traj);
+    init_ptl_traj(nptl, nptl_traj, nsteps_ptl_tracking, ptl, nsteps_output,
+            &ntraj, ntraj_accum, ptl_traj);
 
     // The accumulation of particle trajectories in all MPI processes
     int *ntraj_accum_global = (int *)malloc(sizeof(int)*mpi_size);
@@ -549,7 +553,7 @@ void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
 
     int traj_diagnose = 1;
     particle_tracking_hybrid(mpi_rank, nptl_traj, dt, nbins, nt_out, bc_flag,
-            nsteps_output, pmass, ntraj_accum, tracking_method, traj_diagnose,
+            *nsteps_output, pmass, ntraj_accum, tracking_method, traj_diagnose,
             ptl_init, nsteps_ptl_tracking, ptl_traj, ptl_time);
 
     save_particles_fields(mpi_rank, ntraj, ptl_time,
@@ -666,9 +670,9 @@ void calc_diff_coeff(particles *ptl_init, particles *ptl, double dt,
     *duu = 0.0;
     *daa = 0.0;
     *dee = 0.0;
-    *dxx = pow(ptl_init->x - ptl->x, 2) / t;
-    *dyy = pow(ptl_init->y - ptl->y, 2) / t;
-    *dzz = pow(ptl_init->z - ptl->z, 2) / t;
+    *dxx = pow(ptl_init->x - (ptl->x + ptl->xshift), 2) / t;
+    *dyy = pow(ptl_init->y - (ptl->y + ptl->yshift), 2) / t;
+    *dzz = pow(ptl_init->z - (ptl->z + ptl->zshift), 2) / t;
     *drr = (*dxx) + (*dyy) + (*dzz);
     *dpp = (pow(ptl_init->ux - ptl->ux, 2) + pow(ptl_init->uy - ptl->uy, 2) +
            pow(ptl_init->uz - ptl->uz, 2)) / t;
@@ -775,4 +779,42 @@ void collect_diff_coeffs(int mpi_rank, int nsteps_dcoeffs, double *drr,
     free(daa_global);
     free(dee_global);
     free(nptl_remain_global);
+}
+
+/******************************************************************************
+ * Get time step interval for trajectory diagnostics
+ *
+ * Input:
+ *  mpi_rank: the rank of current MPI process.
+ *  config_file_name: the configuration filename.
+ *
+ * Output:
+ *  nbins: number of energy bins.
+ *  nt_out: number of diagnostic time frames.
+ *****************************************************************************/
+void get_tinterval_traj_diagnostics(int mpi_rank, char *config_file_name,
+        int *tinterval_traj)
+{
+    FILE *fp;
+    int msg;
+    char *buff = (char *)malloc(sizeof(*buff)*LEN_MAX);
+    fp = fopen(config_file_name, "r");
+
+    while (fgets(buff, LEN_MAX, fp) != NULL) {
+        //puts(buff);
+        if (strstr(buff, "Number of particles for trajectory diagnostics:") != NULL) {
+            break;
+        }
+    }
+    msg = fscanf(fp, "Time step interval for trajectory diagnostics: %d\n", tinterval_traj);
+    if (msg != 1) {
+        printf("Failed to read time step interval for trajectory diagnostics.\n");
+        exit(1);
+    }
+    free(buff);
+    fclose(fp);
+
+    if (mpi_rank == 0) {
+        printf("Time step interval for trajectory diagnostics = %d\n", *tinterval_traj);
+    }
 }

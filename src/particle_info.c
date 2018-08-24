@@ -326,6 +326,9 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
             ptl[i].uy = (i+1) * uthe / nptl;
             ptl[i].uz = 0.0;
             ptl[i].t = 0.0;
+            ptl[i].xshift = 0.0;
+            ptl[i].yshift = 0.0;
+            ptl[i].zshift = 0.0;
         }
     }
     else {
@@ -335,6 +338,9 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
             ptl[i].z = (zmax-zmin)*drand48() + zmin;
             ptl[i].qm = charge_mass;
             ptl[i].t = 0.0;
+            ptl[i].xshift = 0.0;
+            ptl[i].yshift = 0.0;
+            ptl[i].zshift = 0.0;
         }
         if (is_single_vel) {
             for (i = 0; i < nptl; i++) {

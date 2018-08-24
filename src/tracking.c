@@ -102,10 +102,14 @@ void particle_tracking_fixed_time_step(int mpi_rank, int nptl, double dt,
     int i, nsteps_dcoeffs;
     estep = simul_domain.tmax / dt;
     einterval_t = estep/nt_out;
-    printf("Energy output time interval %d\n", einterval_t);
+    if (mpi_rank == 0) {
+        printf("Energy output time interval %d\n", einterval_t);
+    }
     /* Diffusion coefficients */
     nsteps_dcoeffs = estep / tinterval_dcoeffs + 1;
-    printf("Time step for diffusion coefficients: %d\n", nsteps_dcoeffs);
+    if (mpi_rank == 0) {
+        printf("Time step for diffusion coefficients: %d\n", nsteps_dcoeffs);
+    }
     drr = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     dxx = (double *)calloc(nsteps_dcoeffs, sizeof(double));
     dyy = (double *)calloc(nsteps_dcoeffs, sizeof(double));
@@ -141,7 +145,7 @@ void particle_tracking_fixed_time_step(int mpi_rank, int nptl, double dt,
         int j;
         int tid = omp_get_thread_num();
         int num_threads = omp_get_num_threads();
-        if (tid == 0) {
+        if (tid == 0 && mpi_rank == 0) {
             printf("Number of threads: %d\n", num_threads);
         }
         for (j=0; j<nbins*nt_out; j++) {
@@ -308,7 +312,7 @@ void particle_tracking_multi_steps_openmp(int nptl, double dt, int tid, int sste
         daa_single, dee_single)
     for (i = 0; i < nptl; i++) {
         iescape_pre = 0; // Default: not escaped yet.
-        particle_bc(&ptl[i].x, &ptl[i].y, &ptl[i].z, &iescape_pre);
+        particle_bc(&ptl[i], &iescape_pre);
         iescape_after = iescape_pre;
         ntp = floor(sstep/(double)einterval_t);
 
@@ -332,7 +336,7 @@ void particle_tracking_multi_steps_openmp(int nptl, double dt, int tid, int sste
             duu_single = 0.0;
             particle_tracking_single_step_openmp(i, j, dt, tid, einterval_t,
                     traj_diagnose, nbins, nt_out, nsteps_output, pmass, ptl_init,
-                    ntraj_offset_local, &ntp, ptl, &iescape_pre, &iescape_after, 
+                    ntraj_offset_local, &ntp, ptl, &iescape_pre, &iescape_after,
                     &ntraj_diagnostics_points, nsteps_ptl_tracking, espect_private,
                     espect_escape_private, ptl_time, &drr_single, &dxx_single,
                     &dyy_single, &dzz_single, &dpp_single, &duu_single, &daa_single,
@@ -423,7 +427,7 @@ void particle_tracking_single_step_openmp(int iptl, int it, double dt, int tid,
     if (*iescape_pre == 0 || bc_flag == 0) {
         // advance(&ptl[i], dt);
         tracking_wirz(&ptl[iptl], dt);
-        particle_bc(&ptl[iptl].x, &ptl[iptl].y, &ptl[iptl].z, iescape_after);
+        particle_bc(&ptl[iptl], iescape_after);
         nsteps_ptl_tracking[iptl] += 1;
         if (*iescape_after == 0 && it % tinterval_dcoeffs == 0) {
             calc_diff_coeff(&ptl_init[iptl], &ptl[iptl], dt, drr, dxx, dyy,
@@ -679,7 +683,9 @@ void particle_tracking_hybrid(int mpi_rank, int nptl, double dt, int nbins,
         /*         espect_tot, espect_escape, espect_private, espect_escape_private); */
     }
     double t2 = omp_get_wtime();
-    printf("Elapsed time: %lf s\n", t2-t1);
+    if (mpi_rank == 0) {
+        printf("Elapsed time: %lf s\n", t2-t1);
+    }
     if (traj_diagnose == 0) {
         collect_espectrum(mpi_rank, nbins, nt_out, espectrum, espect_tot,
                 "data/espectrum.dat");
@@ -776,7 +782,7 @@ void tracking_wirz(struct particles *ptl, double dt)
     iBtot = 1.0 / Btot;
     dth = dt * 0.5;
 
-    // Calculate the first intermidate velocity v_minus by applying the
+    // Calculate the first intermediate velocity v_minus by applying the
     // first electric half impulse
     delta_m[0] = delta[0] + charge_mass * dth * emf.Ex;
     delta_m[1] = delta[1] + charge_mass * dth * emf.Ey;
@@ -1157,13 +1163,13 @@ double** Make2DDoubleArray(int arraySizeX, int arraySizeY)
  * bc_flag: 0 for periodic boundary condition. 1 for open boundary.
  *
  * Input:
- *  x, y, z: spatial positions of particles.
+ *  ptl: one particle structure
  *
  * Output:
  *  iescape: flag to see if particles escape the simulation box.
  *           0 for no. 1 for yes.
  ******************************************************************************/
-void particle_bc(double *x, double *y, double *z, int *iescape)
+void particle_bc(particles *ptl, int *iescape)
 {
     double xmax, ymax, zmax;
     double xmin, ymin, zmin;
@@ -1178,16 +1184,34 @@ void particle_bc(double *x, double *y, double *z, int *iescape)
     ydim = ymax - ymin;
     zdim = zmax - zmin;
     if (bc_flag == 0) {
-        if (*x > xmax) *x -= xdim;
-        if (*y > ymax) *y -= ydim;
-        if (*z > zmax) *z -= zdim;
-        if (*x < xmin) *x += xdim;
-        if (*y < ymin) *y += ydim;
-        if (*z < zmin) *z += zdim;
+        if (ptl->x > xmax) {
+            ptl->x -= xdim;
+            ptl->xshift += xdim;
+        }
+        if (ptl->y > ymax) {
+            ptl->y -= ydim;
+            ptl->yshift += ydim;
+        }
+        if (ptl->z > zmax) {
+            ptl->z -= zdim;
+            ptl->zshift += zdim;
+        }
+        if (ptl->x < xmin) {
+            ptl->x += xdim;
+            ptl->xshift -= xdim;
+        }
+        if (ptl->y < ymin) {
+            ptl->y += ydim;
+            ptl->yshift -= ydim;
+        }
+        if (ptl->z < zmin) {
+            ptl->z += zdim;
+            ptl->zshift -= zdim;
+        }
     }
     else if (bc_flag == 1) {
-        if ((*x>xmax) || (*y>ymax) || (*z>zmax) ||
-            (*x<xmin) || (*y<ymin) || (*z<zmin)) {
+        if ((ptl->x>xmax) || (ptl->y>ymax) || (ptl->z>zmax) ||
+            (ptl->x<xmin) || (ptl->y<ymin) || (ptl->z<zmin)) {
             *iescape = 1;
         }
     }

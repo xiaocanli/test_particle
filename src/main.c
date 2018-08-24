@@ -98,6 +98,7 @@ int main(int argc, char **argv)
 
     // tracking particles
     int nsteps_output = 10;
+    get_tinterval_traj_diagnostics(mpi_rank, config_file_name, &nsteps_output);
     int *ntraj_accum;
     int traj_diagnose = 0;
     particles *ptl_time;
@@ -107,8 +108,8 @@ int main(int argc, char **argv)
     if (is_traj_diagnostic) {
         trajectory_diagnostics(mpi_rank, mpi_size, nptl, dt, pmass,
                 nptl_traj_tot, system_type, ptl, nptl_accumulate,
-                nsteps_ptl_tracking, nbins, nt_out, bc_flag, tracking_method,
-                ptl_init);
+                nsteps_ptl_tracking, nbins, nt_out, &nsteps_output,
+                bc_flag, tracking_method, ptl_init);
     }
 
     free(nsteps_ptl_tracking);

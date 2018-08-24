@@ -19,7 +19,7 @@
 
 /* void time_points(double tott, int iexpo, int nt, double *tps); */
 /* double** Make2DDoubleArray(int arraySizeX, int arraySizeY); */
-void particle_bc(double *x, double *y, double *z, int *iescape);
+void particle_bc(particles *ptl, int *iescape);
 /* void init_spectrum(double espectrum [][nbins]); */
 /* void particle_tracking_adaptive(int nptl, */ 
 /*         int traj_diagnose, struct particles *ptl, */ 

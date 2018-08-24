@@ -47,12 +47,13 @@ void sort_particles_energy(int mpi_rank, int nptl, double pmass,
         int *nptl_accumulate, struct particles *ptl, int *nsteps_ptl_tracking);
 
 void init_ptl_traj(int nptl, int nptl_traj, int *nsteps_ptl_tracking,
-        particles *ptl, int *ntraj, int *ntraj_accum, particles *ptl_traj);
+        particles *ptl, int *nsteps_output, int *ntraj, int *ntraj_accum,
+        particles *ptl_traj);
 
 void trajectory_diagnostics(int mpi_rank, int mpi_size, int nptl, double dt,
         double pmass, int nptl_traj_tot, int system_type, struct particles *ptl,
         int *nptl_accumulate, int *nsteps_ptl_tracking, int nbins, int nt_out,
-        int bc_flag, int tracking_method, particles *ptl_init);
+        int *nsteps_output, int bc_flag, int tracking_method, particles *ptl_init);
 
 void calc_diff_coeff(particles *ptl_init, particles *ptl, double dt,
         double *drr, double *dxx, double *dyy, double *dzz, double *dpp,
@@ -61,3 +62,6 @@ void calc_diff_coeff(particles *ptl_init, particles *ptl, double dt,
 void collect_diff_coeffs(int mpi_rank, int nsteps_dcoeffs, double *drr,
         double *dxx, double *dyy, double *dzz, double *dpp, double *duu,
         double *daa, double *dee, char *fname, int *nptl_remain);
+
+void get_tinterval_traj_diagnostics(int mpi_rank, char *config_file_name,
+        int *tinterval_traj);

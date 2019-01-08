@@ -1,28 +1,29 @@
 ---------------------------- Particle information ----------------------------
-Total number of particles: 128
-Particle thermal speed (in light speed): 0.2
+Total number of particles: 12800
+Particle thermal speed (in light speed): 0.3
 Single velocity: 1
 Mass: 1.0
-Charge: 1.0
+Charge: -1.0
 To diagnose particle trajectories?: 1
-Number of particles for trajectory diagnostics: 128
+Number of particles for trajectory diagnostics: 1280
+Time step interval for trajectory diagnostics: 1000
 ------------------------------------------------------------------------------
 
 ----------------------------- Domain information -----------------------------
 ---- particle injection domain -----
-xmin_ptl = 0.0
-xmax_ptl = 750.0
-ymin_ptl = 0.0
-ymax_ptl = 375.0
-zmin_ptl = 0.0
-zmax_ptl = 312.5
+xmin_ptl = 50.0
+xmax_ptl = 700.0
+ymin_ptl = -187.5
+ymax_ptl = 187.5
+zmin_ptl = -10.0
+zmax_ptl = 10.0
 --------- simulation domain --------
 xmin = 0.0
 xmax = 750.0
-ymin = 0.0
-ymax = 375.0
-zmin = 0.0
-zmax = 312.5
+ymin = -187.5
+ymax = 187.5
+zmin = -156.25
+zmax = 156.25
 ------------------------------------------------------------------------------
 
 --------------------------------- System info --------------------------------
@@ -39,21 +40,21 @@ Normalized B(Gauss): 1.0
 ------------------------------------------------------------------------------
 
 ------------------------------ Particle tracking -----------------------------
-Total tracking time (s): 10.0
+Total tracking time (s): 10000.0
 0 for fixed step, 1 for adaptive
 Tracking method to use: 0
-Tracking time step (for electrons): 1E-5
+Tracking time step (for electrons): 1E-2
 ------------------------------------------------------------------------------
 
 -------------------------------- Fields arrays -------------------------------
-x dimension(nx): 3027
-y dimension(ny): 1536
-z dimension(nz): 1280
-time slices(nt): 16
-Velocity field normalization (in light speed): 1.0
+x dimension(nx): 1536
+y dimension(ny): 768
+z dimension(nz): 640
+time slices(nt): 1
+Velocity field normalization (in light speed): 0.0
 Magnetic field normalization (in Gauss): 1.0
 If using multiple time slices: 0
-File path: /global/cscratch1/sd/xiaocan/3D-Lx150-bg0.2-150ppc-2048KNL/test_data/
+File path: /net/scratch3/xiaocanli/reconnection/Cori_runs/3D-Lx150-bg0.2-150ppc-2048KNL/data-smooth/
 Initial time frame: 22170
 ------------------------------------------------------------------------------
 

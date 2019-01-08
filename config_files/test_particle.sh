@@ -1,112 +1,61 @@
 #!/bin/bash
 
-wlcs_conf=init8.dat
-init=init.dat
-ch_nptl () {
-    sed -i -e "s/\(Total number of particles: \).*/\1$1/" $init
+ana_path=/net/scratch3/xiaocanli/diffusion
+pic_run=3D-Lx150-bg0.2-150ppc-2048KNL
+run_path=$ana_path/$pic_run/
+ana_config=$run_path/init.dat
+
+ch_vel () {
+    sed -i -e "s/\(Particle thermal speed (in light speed): \).*/\1$1/" $ana_config
 }
 
-ch_mass () {
-    sed -i -e "s/\(Mass: \).*/\1$1/" $init
+
+ch_tframe () {
+    sed -i -e "s/\(Initial time frame: \).*/\1$1/" $ana_config
 }
 
-ch_charge () {
-    sed -i -e "s/\(Charge: \).*/\1$1/" $init
-}
-
-ch_tracking_time () {
-    sed -i -e "s/\(Total tracking time (s): \).*/\1$1/" $init
-}
-
-ch_nframes () {
-    sed -i -e "s/\(Number of diagnostic time frames: \).*/\1$1/" $init
-}
-
-ch_frequency () {
-    sed -i -e "s/$1/$2/" $wlcs_conf
-}
-
-ch_current () {
-    sed -i -e "s/$1/$2/" $wlcs_conf
-}
-
-ch_species () {
-    ch_nptl $1
-    ch_mass $2
-    ch_charge $3
-}
-
-ch_to_electron () {
-    ch_species 25000 0.000545 -1.0
-}
+mpi_size=64
+fd_tinterval=1
 
 run_test_particle () {
-    mpirun -np 16 -npernode 2 -bysocket -bind-to-socket ./test_particle
-    ch_current $1 $2
-    ch_tracking_time $3
-    cd data
-    cp diff_coeffs.dat diff_coeffs_$4.dat
-    cp espectrum.dat espectrum_$4.dat
-    cp espect_escape.dat espect_escape_$4.dat
-    cd ..
+    cd $run_path
+    ch_vel $1
+    ch_tframe $2
+    mkdir -p data
+    srun -n $3 -N $4 -c $5 --cpu_bind=cores ./test_particle
+    rm -rf data_${2}_${1}c
+    mv data data_${2}_${1}c 
+    ch_tframe 22170
+    ch_vel 0.3
 }
 
-run_particle_sf1 () {
-    run_test_particle 0.25000000000000 1.25000000000000 $1 $7_025I0_0001Hz
-    run_test_particle 1.25000000000000 2.50000000000000 $2 $7_125I0_0001Hz
-    run_test_particle 2.50000000000000 25.0000000000000 $3 $7_25I0_0001Hz
-    run_test_particle 25.0000000000000 250.000000000000 $4 $7_250I0_0001Hz
-    run_test_particle 250.000000000000 2500.00000000000 $5 $7_2500I0_0001Hz
-    run_test_particle 2500.00000000000 0.25000000000000 $6 $7_25000I0_0001Hz
+run_code () {
+    for tframe in {22170..44340..2217}
+    do
+        echo "Time frame: $tframe" 
+        for ptl_vel in 0.3 0.4 0.5 0.6 0.7 0.8 0.9 0.95
+        do
+            run_test_particle $ptl_vel $tframe $1 $2 $3
+        done
+    done
 }
 
-run_particle_sf2 () {
-    run_test_particle 0.25000000000000 1.25000000000000 $1 $7_025I0_001Hz
-    # run_test_particle 1.25000000000000 2.50000000000000 $2 $7_125I0_001Hz
-    # run_test_particle 2.50000000000000 25.0000000000000 $3 $7_25I0_001Hz
-    # run_test_particle 25.0000000000000 250.000000000000 $4 $7_250I0_001Hz
-    # run_test_particle 250.000000000000 2500.00000000000 $5 $7_2500I0_001Hz
-    # run_test_particle 2500.00000000000 0.25000000000000 $6 $7_25000I0_001Hz
-}
+# ncores=64
+# nnodes=32
+# nthreads=18
 
-run_particle_sf3 () {
-    run_test_particle 0.25000000000000 1.25000000000000 $1 $7_025I0_01Hz
-    # run_test_particle 1.25000000000000 2.50000000000000 $2 $7_125I0_01Hz
-    # run_test_particle 2.50000000000000 25.0000000000000 $3 $7_25I0_01Hz
-    # run_test_particle 25.0000000000000 250.000000000000 $4 $7_250I0_01Hz
-    # run_test_particle 250.000000000000 2500.00000000000 $5 $7_2500I0_01Hz
-    # run_test_particle 2500.00000000000 0.25000000000000 $6 $7_25000I0_01Hz
-}
+# run_code $ncores $nnodes $nthreads
 
-run_proton_mf () {
-    # run_particle_sf1 0.8 0.4 0.04 0.004 0.0004 0.4 proton
-    # ch_frequency 0.001000000 0.010000000
-    # # ch_nframes 500
-    # ch_tracking_time 0.4
-    # run_particle_sf2 0.08 0.04 0.004 0.0004 0.00004 0.04 proton
-    # ch_frequency 0.010000000 0.100000000
-    # # ch_nframes 200
-    ch_tracking_time 0.04
-    run_particle_sf3 0.008 0.004 0.0004 0.00004 0.000004 4.0 proton
-    ch_frequency 0.100000000 0.001000000
-    ch_nframes 1000
-}
+ncores=2
+nnodes=1
+nthreads=18
 
-run_electron_mf () {
-    run_particle_sf1 0.02 0.01 0.001 0.0001 0.00001 0.01 electron
-    ch_frequency 0.001000000 0.010000000
-    ch_nframes 500
-    run_particle_sf2 0.002 0.001 0.0001 0.00001 0.000001 0.001 electron
-    ch_frequency 0.010000000 0.100000000
-    ch_nframes 200
-    run_particle_sf3 0.0002 0.0001 0.00001 0.000001 0.0000001 0.1 electron
-    ch_frequency 0.100000000 0.001000000
-    ch_nframes 1000
-}
-
-ch_tracking_time 4.0
-ch_species 1000000 1.0 1.0
-run_proton_mf
-# ch_species 25000 0.000545 -1.0
-# ch_tracking_time 0.1
-# run_electron_mf
+tframe=22170
+ptl_vel=0.7 # in light speed
+run_test_particle $ptl_vel $tframe $ncores $nnodes $nthreads
+# ptl_vel=0.8 # in light speed
+# run_test_particle $ptl_vel $tframe $ncores $nnodes $nthreads
+# ptl_vel=0.9 # in light speed
+# run_test_particle $ptl_vel $tframe $ncores $nnodes $nthreads
+# ptl_vel=0.95 # in light speed
+# run_test_particle $ptl_vel $tframe $ncores $nnodes $nthreads

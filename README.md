@@ -22,3 +22,22 @@ The variables in the files should be self-explained.
    * `particle_diagnostics.h5` (HDF5): particle trajectories.
    * `particles_fields_init.h5`: initial particle information, including particle position,
    velocity, time, charge/mass, electric field, and magnetic field.
+
+## Plot
+You can use the provided Python scripts to plot the data.
+1. Diffusion coefficients
+```sh
+python reconnection_analysis.py --run_name $run_name --run_dir $run_dir \
+       --tinterval $tinterval --tframe $tframe --diff_coeff --ptl_vel 0.7
+```
+where you have to define the simulation's parameters. For multiple injection velocity,
+add `--multi_vel` flag.
+2. Energy spectrum: change `--diff_coeff` to `plot_spectrum` in the above script.
+3. Particle trajectory:
+   * `particle_diagnostics.h5` saves each partilce information in a dataset.
+   In order to read the data using ParaView + H5Part, we need to transfer the HDF5
+   file to a H5Part file using
+   ```sh
+   python reconnection_analysis.py --run_name $run_name --run_dir $run_dir \
+          --tinterval $tinterval --tframe $tframe --tran_hdf5 --ptl_vel 0.7
+   ```

@@ -305,7 +305,7 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
         int is_single_vel)
 {
     double xmin, xmax, ymin, ymax, zmin, zmax;
-    double ran1, ran2, theta, phi;
+    double ran1, ran2, phi, vxy;
     double uthe;
     int i;
     xmin = simul_domain.xmin_ptl;
@@ -344,11 +344,11 @@ void init_ptl(int mpi_rank, int mpi_size, domain simul_domain, int nptl,
         }
         if (is_single_vel) {
             for (i = 0; i < nptl; i++) {
-                theta = drand48() * M_PI;
+                ptl[i].uz = uthe * (drand48() * 2 - 1);
                 phi = drand48() * M_PI * 2;
-                ptl[i].ux = uthe * sin(theta) * cos(phi);
-                ptl[i].uy = uthe * sin(theta) * sin(phi);
-                ptl[i].uz = uthe * cos(theta);
+                vxy = sqrt(uthe * uthe - ptl[i].uz * ptl[i].uz);
+                ptl[i].ux = vxy * cos(phi);
+                ptl[i].uy = vxy * sin(phi);
             }
         } else {
             for (i = 0; i < nptl; i++) {

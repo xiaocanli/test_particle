@@ -32,6 +32,7 @@ python reconnection_analysis.py --run_name $run_name --run_dir $run_dir \
 ```
 where you have to define the simulation's parameters. For multiple injection velocity,
 add `--multi_vel` flag.
+
 2. Energy spectrum: change `--diff_coeff` to `plot_spectrum` in the above script.
 3. Particle trajectory:
    * `particle_diagnostics.h5` saves each particle information in a dataset.

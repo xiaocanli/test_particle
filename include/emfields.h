@@ -1,13 +1,13 @@
-#include "hdf5.h"
-
 #ifndef EMFIELDS_H
 #define EMFIELDS_H
+
+#include "hdf5.h"
+
 /* Electromagnetic fields */
 typedef struct emfields {
 	double Bx, By, Bz;
 	double Ex, Ey, Ez;
 } emfields;
-#endif
 
 #ifndef BFIELDS_H
 #define BFIELDS_H
@@ -26,6 +26,7 @@ typedef struct efields {
 #endif
 
 void get_emf(double x, double y, double z, double t, struct emfields *emf);
+void get_magnetic_field(double x, double y, double z, double t, struct emfields *emf);
 void create_fields_ctype(hid_t *memtype, hid_t *filetype);
 void getemf_test(double x, double y, double z, double t, struct emfields *emf);
 void set_variables_emfields(int stype);
@@ -33,3 +34,9 @@ void getemf_mhd_test_particle(double x, double y, double z, double t,
         struct emfields *emf);
 void getemf_pic_test_particle(double x, double y, double z, double t,
         struct emfields *emf);
+void get_bfield_mhd_test_particle(double x, double y, double z, double t,
+        struct emfields *emf);
+void get_bfield_pic_test_particle(double x, double y, double z, double t,
+        struct emfields *emf);
+
+#endif

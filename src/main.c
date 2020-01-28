@@ -1,36 +1,16 @@
-/******************************************************************************
-* This file is part of CHAOTICB.
-* Copyright (C) <2012-2014> <Xiaocan Li> <xl0009@uah.edu>
-*
-* CHAOTICB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* CHAOTICB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with CHAOTICB.  If not, see <http://www.gnu.org/licenses/>.
-******************************************************************************/
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <time.h>
 #include <mpi.h>
 #include "constants.h"
-#include "domain.h"
-#include "particle_info.h"
 #include "diagnostics.h"
 #include "wlcs.h"
-#include "velocity_field.h"
-#include "magnetic_field.h"
 #include "electric_field.h"
-#include "emfields.h"
-#include "tracking.h"
+#include "magnetic_field.h"
+#include "poincare_map.h"
+#include "test_particle.h"
+#include "velocity_field.h"
+
+int get_run_type(int mpi_rank, char *config_file_name, int *run_type);
 
 /******************************************************************************
  * Main program for test particle simulation.
@@ -39,11 +19,7 @@ int main(int argc, char **argv)
 {
     int ierr, mpi_size, mpi_rank;
     char config_file_name[LEN_MAX];
-    int ipvd, err, system_type, tracking_method;
-    int nptl_tot, bc_flag, nptl_traj_tot;
-    double pmass, charge_mass, vthe;
-    int nptl, nbins, nt_out;
-    int is_traj_diagnostic, is_single_vel;
+    int ipvd, err, system_type, tracking_method, run_type;
 
     /* ierr = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ipvd); */
     /* ierr = MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &ipvd); */
@@ -52,70 +28,23 @@ int main(int argc, char **argv)
     ierr = MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
     snprintf(config_file_name, sizeof(config_file_name), "%s", "init.dat");
+    get_run_type(mpi_rank, config_file_name, &run_type);
     struct domain simul_domain;
-    err = read_domain(mpi_rank, config_file_name, &simul_domain,
+    err = read_domain(mpi_rank, config_file_name, run_type, &simul_domain,
             &system_type, &tracking_method);
     if (err < 0) {
         ierr = MPI_Finalize();
         return 0;
     }
 
-    // Read particle information
-    is_traj_diagnostic = 0;
-    read_particle_info(mpi_rank, config_file_name, &nptl_tot, &pmass,
-            &vthe, &charge_mass, &bc_flag, &is_traj_diagnostic,
-            &nptl_traj_tot, &is_single_vel);
-
-    // Set the particle numbers on each process
-    int *nptl_accumulate = (int *)malloc(sizeof(int)*mpi_size);
-    for (int i = 0; i < mpi_size; i++) {
-        nptl_accumulate[i] = 0;
+    if (run_type == 1) {
+        test_particle(mpi_rank, mpi_size, config_file_name, system_type,
+                tracking_method, simul_domain);
     }
-    assign_particles(mpi_rank, mpi_size, &nptl_tot, &nptl_traj_tot,
-            system_type, &nptl, nptl_accumulate);
-
-    // Initialize particles
-    struct particles *ptl, *ptl_init;
-    ptl = (struct particles*)malloc(sizeof(struct particles)*nptl);
-    ptl_init = (struct particles*)malloc(sizeof(struct particles)*nptl);
-    initialize_particles(mpi_rank, mpi_size, config_file_name, simul_domain,
-            nptl, vthe, charge_mass, system_type, nptl_accumulate, ptl,
-            is_single_vel);
-    memcpy(ptl_init, ptl, sizeof(particles) * nptl);
-
-    get_spectrum_info(mpi_rank, config_file_name, &nbins, &nt_out);
-
-    // Number of steps each particle is tracked.
-    int *nsteps_ptl_tracking = (int *)malloc(sizeof(int)*nptl);
-
-    double dt;
-    dt = get_tracking_time_interval(mpi_rank, config_file_name, pmass);
-    if (system_type == 2) adjust_dt_normI(&dt);
-    calc_energy_spectrum(mpi_rank, nptl, ptl, nbins, nt_out, pmass, bc_flag);
-    save_particles_fields(mpi_rank, nptl, ptl, nptl_tot, nptl_accumulate,
-            "data/particles_fields_init.h5", system_type);
-    set_ptl_params_tracking(bc_flag, charge_mass);
-
-    // tracking particles
-    int nsteps_output = 10;
-    get_tinterval_traj_diagnostics(mpi_rank, config_file_name, &nsteps_output);
-    int *ntraj_accum;
-    int traj_diagnose = 0;
-    particles *ptl_time;
-    particle_tracking_hybrid(mpi_rank, nptl, dt, nbins, nt_out, bc_flag,
-            nsteps_output, pmass, ntraj_accum, tracking_method, traj_diagnose,
-            ptl_init, nsteps_ptl_tracking, ptl, ptl_time);
-    if (is_traj_diagnostic) {
-        trajectory_diagnostics(mpi_rank, mpi_size, nptl, dt, pmass,
-                nptl_traj_tot, system_type, ptl, nptl_accumulate,
-                nsteps_ptl_tracking, nbins, nt_out, &nsteps_output,
-                bc_flag, tracking_method, ptl_init);
+    else if (run_type == 2) {
+        poincare_map(mpi_rank, mpi_size, config_file_name, &simul_domain);
     }
 
-    free(nsteps_ptl_tracking);
-    free(ptl);
-    free(ptl_init);
-    free(nptl_accumulate);
     switch (system_type) {
         case 0:
             break;
@@ -130,7 +59,8 @@ int main(int argc, char **argv)
             free_bfield();
             break;
         case 4:
-            free_efield();
+            if (run_type == 1)
+                free_efield();
             free_bfield();
             break;
         default:
@@ -141,5 +71,50 @@ int main(int argc, char **argv)
             return -1;
     }
     ierr = MPI_Finalize();
+    return 0;
+}
+
+/******************************************************************************
+ * Get the run type from the configuration file
+ ******************************************************************************/
+int get_run_type(int mpi_rank, char *config_file_name, int *run_type)
+{
+    char *buff = (char *)malloc(sizeof(*buff)*LEN_MAX);
+    int err, msg;
+    FILE *fp;
+
+    fp = fopen(config_file_name, "r");
+
+    while (fgets(buff, LEN_MAX, fp) != NULL) {
+        //puts(buff);
+        if (strstr(buff, "Simulation run type") != NULL) {
+            break;
+        }
+    }
+    msg = fscanf(fp, "Run type (1: test particle simulation 2: Poincare map):%d\n", run_type);
+    if (msg != 1) {
+        printf("Failed to read the simulation run type.\n");
+        exit(1);
+    }
+    switch (*run_type) {
+        case 1:
+            if (mpi_rank == 0) {
+                printf("This is a test-particle simulation.\n");
+            }
+            break;
+        case 2:
+            if (mpi_rank == 0) {
+                printf("This simulation gets a Poincare map.\n");
+            }
+            break;
+        default:
+            if (mpi_rank == 0) {
+                printf("ERROR: wrong flag for run type.");
+            }
+            return -1;
+    }
+    fclose(fp);
+
+    free(buff);
     return 0;
 }

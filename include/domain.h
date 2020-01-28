@@ -25,8 +25,8 @@ typedef struct grids{
 
 #endif
 
-int read_domain(int mpi_rank, char *config_file_name, domain *simul_domain,
-        int *system_type, int *tracking_method);
+int read_domain(int mpi_rank, char *config_file_name, int run_type,
+        domain *simul_domain, int *system_type, int *tracking_method);
 
 void get_fields_dims(int mpi_rank, char *config_file_name, domain simul_domain,
         grids *simul_grid, double *v0_field, double *B0_field, int *multi_tframe);

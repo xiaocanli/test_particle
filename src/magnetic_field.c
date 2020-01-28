@@ -1,17 +1,17 @@
 /******************************************************************************
 * This file is part of CHAOTICB.
 * Copyright (C) <2012-2014> <Xiaocan Li> <xl0009@uah.edu>
-* 
+*
 * CHAOTICB is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
 * the Free Software Foundation, either version 3 of the License, or
 * (at your option) any later version.
-* 
+*
 * CHAOTICB is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
-* 
+*
 * You should have received a copy of the GNU General Public License
 * along with CHAOTICB.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
@@ -72,10 +72,10 @@ void initialize_bfield_double(void)
     ny = simul_grid.ny;
     nz = simul_grid.nz;
     if (multi_tframe == 1) {
-        maga_double = (bfields_double *)malloc(nx*ny*nz * sizeof(bfields_double));
-        magb_double = (bfields_double *)malloc(nx*ny*nz * sizeof(bfields_double));
+        maga_double = (bfields_double *)malloc(sizeof(bfields_double)*nx*ny*nz);
+        magb_double = (bfields_double *)malloc(sizeof(bfields_double)*nx*ny*nz);
     } else {
-        magc_double = (bfields_double *)malloc(nx*ny*nz * sizeof(bfields_double));
+        magc_double = (bfields_double *)malloc(sizeof(bfields_double)*nx*ny*nz);
     }
 }
 
@@ -89,10 +89,10 @@ void initialize_bfield_float(void)
     ny = simul_grid.ny;
     nz = simul_grid.nz;
     if (multi_tframe == 1) {
-        maga_float = (bfields_float *)malloc(nx*ny*nz * sizeof(bfields_float));
-        magb_float = (bfields_float *)malloc(nx*ny*nz * sizeof(bfields_float));
+        maga_float = (bfields_float *)malloc(sizeof(bfields_float)*nx*ny*nz);
+        magb_float = (bfields_float *)malloc(sizeof(bfields_float)*nx*ny*nz);
     } else {
-        magc_float = (bfields_float *)malloc(nx*ny*nz * sizeof(bfields_float));
+        magc_float = (bfields_float *)malloc(sizeof(bfields_float)*nx*ny*nz);
     }
 }
 

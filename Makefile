@@ -11,7 +11,7 @@ OPTIMIZATION = -O2 -qopt-report-phase=vec -fp-model precise -xAVX -Wno-strict-al
 # OPTIMIZATION =
 
 # Specify HDF5_ROOT
-HDF5_ROOT = /usr/projects/hpcsoft/toss3/grizzly/hdf5/1.8.16_intel-17.0.1_openmpi-1.10.5
+HDF5_ROOT = /usr/projects/hpcsoft/toss3/grizzly/hdf5/1.8.16_intel-18.0.2_openmpi-2.1.2/
 HDF5_INC = $(HDF5_ROOT)/include
 HDF5_LIB = -L$(HDF5_ROOT)/lib -lhdf5_hl -lhdf5
 LIBS = $(HDF5_LIB) -ldl

@@ -40,5 +40,3 @@
 #ifndef REST_ENE_ELECTRON
 #define REST_ENE_ELECTRON 0.511
 #endif
-
-typedef enum {false, true} bool;

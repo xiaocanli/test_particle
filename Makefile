@@ -1,17 +1,19 @@
 # project name (generate executable with this name)
 TARGET   = test_particle
 #
-CC     = mpicc
-LD     = mpicc
+CC     = cc
+LD     = cc
 AR     = ar clq
 RANLIB = ranlib
 RM 	   = rm -f
-CFLAGS = -Werror -Wall -g -pedantic -std=gnu99 -Wno-long-long -fopenmp
-OPTIMIZATION = -O2 -qopt-report-phase=vec -fp-model precise -xAVX -Wno-strict-aliasing -fomit-frame-pointer
+# CFLAGS = -Werror -Wall -g -pedantic -std=gnu99 -Wno-long-long -fopenmp
+# OPTIMIZATION = -O2 -qopt-report-phase=vec -fp-model precise -xAVX -Wno-strict-aliasing -fomit-frame-pointer
+CFLAGS = -Werror -Wall -g -pedantic -std=gnu99 -Wno-long-long -qopenmp
+OPTIMIZATION =
 # OPTIMIZATION =
 
 # Specify HDF5_ROOT
-HDF5_ROOT = /usr/projects/hpcsoft/toss3/grizzly/hdf5/1.8.16_intel-17.0.1_openmpi-1.10.5
+HDF5_ROOT = /opt/cray/pe/hdf5-parallel/1.10.1.1/INTEL/16.0
 HDF5_INC = $(HDF5_ROOT)/include
 HDF5_LIB = -L$(HDF5_ROOT)/lib -lhdf5_hl -lhdf5
 LIBS = $(HDF5_LIB) -ldl

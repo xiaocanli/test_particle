@@ -58,6 +58,43 @@ void get_emf(double x, double y, double z, double t, struct emfields *emf)
             exit(1);
     }
 }
+
+/******************************************************************************
+ * Calculate or interpolate to get the magnetic field only.
+ * system_type = 0: test case.
+ * system_type = 1: wire-loop current system case.
+ * system_type = 2: force-free magnetic field case.
+ * system_type = 3: MHD + test particle.
+ * system_type = 4: PIC fields + test particle.
+ *
+ * Input:
+ *  x, y, z, t: spatial positions and time.
+ *  system_type: the system type.
+ * Output:
+ *  emf: electromagnetic fields at (x,y,z,t).
+ ******************************************************************************/
+void get_magnetic_field(double x, double y, double z, double t, struct emfields *emf)
+{
+    emf->Bx = 0.0;
+    emf->By = 0.0;
+    emf->Bz = 0.0;
+    emf->Ex = 0.0;
+    emf->Ey = 0.0;
+    emf->Ez = 0.0;
+    /* We only consider cases for MHD and PIC fields */
+    switch (system_type) {
+        case 3:
+            get_bfield_mhd_test_particle(x, y, z, t, emf);
+            break;
+        case 4:
+            get_bfield_pic_test_particle(x, y, z, t, emf);
+            break;
+        default:
+            printf("ERROR: wrong system type.\n");
+            exit(1);
+    }
+}
+
 /******************************************************************************
  * Get electric and magnetic fields for MHD + test particle system.
  *
@@ -83,6 +120,28 @@ void getemf_mhd_test_particle(double x, double y, double z, double t,
 }
 
 /******************************************************************************
+ * Get magnetic fields for MHD + test particle system.
+ *
+ * Input:
+ * x, y, z, t: spatial positions and time.
+ *
+ * Output:
+ * emf: electromagnetic fields at (x, y, z, t)
+ ******************************************************************************/
+void get_bfield_mhd_test_particle(double x, double y, double z, double t,
+        struct emfields *emf)
+{
+    float Bx, By, Bz;
+    get_float_bfield_at_point(x, y, z, t, &Bx, &By, &Bz);
+    emf->Bx = Bx;
+    emf->By = By;
+    emf->Bz = Bz;
+    emf->Ex = 0.0;
+    emf->Ey = 0.0;
+    emf->Ez = 0.0;
+}
+
+/******************************************************************************
  * Get electric and magnetic fields for PIC fields + test particle system.
  *
  * Input:
@@ -101,6 +160,28 @@ void getemf_pic_test_particle(double x, double y, double z, double t,
     emf->Ex = Ex;
     emf->Ey = Ey;
     emf->Ez = Ez;
+    emf->Bx = Bx;
+    emf->By = By;
+    emf->Bz = Bz;
+}
+
+/******************************************************************************
+ * Get magnetic fields for PIC fields + test particle system.
+ *
+ * Input:
+ * x, y, z, t: spatial positions and time.
+ *
+ * Output:
+ * emf: electromagnetic fields at (x, y, z, t)
+ ******************************************************************************/
+void get_bfield_pic_test_particle(double x, double y, double z, double t,
+        struct emfields *emf)
+{
+    float Bx, By, Bz;
+    get_float_bfield_at_point(x, y, z, t, &Bx, &By, &Bz);
+    emf->Ex = 0.0;
+    emf->Ey = 0.0;
+    emf->Ez = 0.0;
     emf->Bx = Bx;
     emf->By = By;
     emf->Bz = Bz;

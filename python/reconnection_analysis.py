@@ -524,7 +524,6 @@ def diffusion_coefficients_multi(plot_config):
     gammas = 1.0 / np.sqrt(1 - vels**2)
     moms = vels * gammas
     tframes = np.linspace(10, 20, 11, dtype=int)
-    # tframes = np.linspace(10, 10, 1, dtype=int)
     tindices = tframes * plot_config["tinterval"]
     dxxs = np.zeros((len(tframes), len(vels)))
 
@@ -532,7 +531,7 @@ def diffusion_coefficients_multi(plot_config):
     mkdir_p(fdir)
     for itindex, tindex in enumerate(tindices):
         fig = plt.figure(figsize=[7, 2.5])
-        rect = [0.08, 0.18, 0.39, 0.76]
+        rect = [0.08, 0.18, 0.38, 0.76]
         xlen = fig.get_figwidth()
         ylen = fig.get_figheight()
         ax1 = fig.add_axes(rect)
@@ -597,18 +596,18 @@ def diffusion_coefficients_multi(plot_config):
                 ax1.text(0.8, yoffset, 'rest', color='k', fontsize=10,
                          bbox=dict(facecolor='none', alpha=1.0,
                                    edgecolor='none', pad=10.0),
-                         horizontalalignment='left', verticalalignment='bottom',
+                         horizontalalignment='left', verticalalignment='top',
                          transform=ax1.transAxes)
             p2, = ax2.plot(tfs, kappa_adjust, linewidth=1, label=label1,
                            linestyle='-', color='k')
             kappa_mean = np.mean(kappa_adjust[nframes//5:])
             dxxs[itindex, ivel] = kappa_mean
             ylim = ax2.get_ylim()
-            k0 = (kappa_adjust[9000] - ylim[0]) / (ylim[1] - ylim[0])
+            k0 = (kappa_adjust[-1] - ylim[0]) / (ylim[1] - ylim[0])
             vel_str = r'$' + str(vel) + 'c$'
-            ax2.text(0.98, k0-0.01, vel_str, color='k', fontsize=10,
+            ax2.text(1.01, k0, vel_str, color='k', fontsize=10,
                      bbox=dict(facecolor='none', alpha=1.0, edgecolor='none', pad=10.0),
-                     horizontalalignment='right', verticalalignment='top',
+                     horizontalalignment='left', verticalalignment='center',
                      transform=ax2.transAxes)
         ax1.set_xlim([tfs.min(), tfs.max()])
         ax1.tick_params(labelsize=10)
@@ -772,7 +771,7 @@ def plot_diffusion_coefficients(plot_config):
 def get_cmd_args():
     """Get command line arguments
     """
-    default_run = '3D-Lx150-bg0.2-150ppc-2048KNL'
+    default_run = '3D-Lx150-bg1.0-150ppc-2048KNL'
     default_run_dir = ('/net/scratch3/xiaocanli/diffusion/' + default_run + '/')
     parser = argparse.ArgumentParser(description='Analysis for test-particle simulations')
     parser.add_argument('--run_name', action="store",

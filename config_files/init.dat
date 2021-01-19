@@ -1,3 +1,7 @@
+---------------------------- Simulation run type -----------------------------
+Run type (1: test particle simulation 2: Poincare map): 2
+------------------------------------------------------------------------------
+
 ---------------------------- Particle information ----------------------------
 Total number of particles: 12800
 Particle thermal speed (in light speed): 0.3

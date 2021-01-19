@@ -19,7 +19,7 @@ int get_system_type(int mpi_rank, FILE *fp);
 int get_tracking_time_method(int mpi_rank, FILE *fp, double *tott,
         int *tracking_method);
 int get_system_info(int mpi_rank, int system_type, char *config_file_name,
-        domain simul_domain);
+        int run_type, domain simul_domain);
 void get_fields_dims(int mpi_rank, char *config_file_name, domain simul_domain,
         grids *simul_grid, double *v0_field, double *B0_field, int *multi_tframe);
 void get_fields_file_path(int mpi_rank, char *config_file_name, char *file_path);
@@ -35,8 +35,8 @@ int get_fields_time_frame(int mpi_rank, char *config_file_name);
  * Output:
  *  simul_domain: the domain information.
  ******************************************************************************/
-int read_domain(int mpi_rank, char *config_file_name, domain *simul_domain,
-        int *system_type, int *tracking_method)
+int read_domain(int mpi_rank, char *config_file_name, int run_type,
+        domain *simul_domain, int *system_type, int *tracking_method)
 {
     FILE *fp;
     int err;
@@ -58,7 +58,8 @@ int read_domain(int mpi_rank, char *config_file_name, domain *simul_domain,
 
     fclose(fp);
 
-    err = get_system_info(mpi_rank, *system_type, config_file_name, *simul_domain);
+    err = get_system_info(mpi_rank, *system_type, config_file_name,
+            run_type, *simul_domain);
     if (err < 0) {
         return -1;
     }
@@ -306,10 +307,11 @@ int get_system_type(int mpi_rank, FILE *fp)
  *  mpi_rank: the rank of current MPI process.
  *  system_type: the system type.
  *  config_file_name: the configuration file name.
+ *  run_type: 1 for test particle simulation, 2 for Poincare map
  *  simul_domain: the simulation domain information.
  ******************************************************************************/
 int get_system_info(int mpi_rank, int system_type, char *config_file_name,
-        domain simul_domain)
+        int run_type, domain simul_domain)
 {
     int multi_tframe, initial_time_frame;
     grids simul_grid;
@@ -375,9 +377,11 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
                     multi_tframe);
             get_fields_file_path(mpi_rank, config_file_name, file_path);
             initial_time_frame = get_fields_time_frame(mpi_rank, config_file_name);
-            initialize_efield();
+            if (run_type == 1) {
+                initialize_efield();
+                read_efields_binary(file_path, initial_time_frame, sizeof(float));
+            }
             initialize_bfield();
-            read_efields_binary(file_path, initial_time_frame, sizeof(float));
             read_bfields_binary(file_path, initial_time_frame, sizeof(float));
             break;
         default:

@@ -72,10 +72,10 @@ void initialize_efield_double(void)
     ny = simul_grid.ny;
     nz = simul_grid.nz;
     if (multi_tframe == 1) {
-        efa_double = (efields_double *)malloc(nx*ny*nz * sizeof(efields_double));
-        efb_double = (efields_double *)malloc(nx*ny*nz * sizeof(efields_double));
+        efa_double = (efields_double *)malloc(sizeof(efields_double)*nx*ny*nz);
+        efb_double = (efields_double *)malloc(sizeof(efields_double)*nx*ny*nz);
     } else {
-        efc_double = (efields_double *)malloc(nx*ny*nz * sizeof(efields_double));
+        efc_double = (efields_double *)malloc(sizeof(efields_double)*nx*ny*nz);
     }
 }
 
@@ -89,10 +89,10 @@ void initialize_efield_float(void)
     ny = simul_grid.ny;
     nz = simul_grid.nz;
     if (multi_tframe == 1) {
-        efa_float = (efields_float *)malloc(nx*ny*nz * sizeof(efields_float));
-        efb_float = (efields_float *)malloc(nx*ny*nz * sizeof(efields_float));
+        efa_float = (efields_float *)malloc(sizeof(efields_float)*nx*ny*nz);
+        efb_float = (efields_float *)malloc(sizeof(efields_float)*nx*ny*nz);
     } else {
-        efc_float = (efields_float *)malloc(nx*ny*nz * sizeof(efields_float));
+        efc_float = (efields_float *)malloc(sizeof(efields_float)*nx*ny*nz);
     }
 }
 

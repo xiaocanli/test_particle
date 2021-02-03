@@ -1,17 +1,17 @@
 /******************************************************************************
 * This file is part of CHAOTICB.
 * Copyright (C) <2012-2014> <Xiaocan Li> <xl0009@uah.edu>
-* 
+*
 * CHAOTICB is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published ey
 * the Free Software Foundation, either version 3 of the License, or
 * (at your option) any later version.
-* 
+*
 * CHAOTICB is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
-* 
+*
 * You should have received a copy of the GNU General Public License
 * along with CHAOTICB.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
@@ -435,3 +435,164 @@ void get_float_efield_at_point(double x, double y, double z, double t,
         *ez = dt * ez1 + (1.0 - dt) * ez2;
     }
 }
+
+/******************************************************************************
+ * Read the electric fields from HDF5 files produced by PIC simulations.
+ * The data is in float.
+ *
+ o Input:
+ *  fname: the HDF5 file name.
+ *  gname: the group name.
+ ******************************************************************************/
+void read_pic_efields_float_h5(char *fname, char *gname)
+{
+    const int rank = 3;
+    char dset_ex[16], dset_ey[16], dset_ez[16];
+    long int nz, ny, nx, nxy, nyz, index_c, index_f;
+
+    hsize_t count[rank], offset[rank];
+
+    nx = (long int)simul_grid.nx;
+    ny = (long int)simul_grid.ny;
+    nz = (long int)simul_grid.nz;
+    float *data = (float *)malloc(sizeof(float)*nx*ny*nz);
+
+    count[0] = nx;
+    count[1] = ny;
+    count[2] = nz;
+    offset[0] = 0;
+    offset[1] = 0;
+    offset[2] = 0;
+
+    snprintf(dset_ex, sizeof(dset_ex), "%s", "ex");
+    snprintf(dset_ey, sizeof(dset_ey), "%s", "ey");
+    snprintf(dset_ez, sizeof(dset_ez), "%s", "ez");
+
+    // We need data in nz*ny*nx order.
+    nxy = nx * ny;
+    nyz = ny * nz;
+    if (multi_tframe == 0) {
+        read_data_serial_float_h5(rank, count, offset, fname, gname, dset_ex, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    efc_float[index_f].ex = data[index_c] * E0;
+                }
+            }
+        }
+        read_data_serial_float_h5(rank, count, offset, fname, gname, dset_ey, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    efc_float[index_f].ey = data[index_c] * E0;
+                }
+            }
+        }
+        read_data_serial_float_h5(rank, count, offset, fname, gname, dset_ez, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    efc_float[index_f].ez = data[index_c] * E0;
+                }
+            }
+        }
+    }
+    free(data);
+}
+
+/******************************************************************************
+ * Read the electric fields from HDF5 files produced by PIC simulations.
+ * The data is in double.
+ *
+ o Input:
+ *  fname: the HDF5 file name.
+ *  gname: the group name.
+ ******************************************************************************/
+void read_pic_efields_double_h5(char *fname, char *gname)
+{
+    const int rank = 3;
+    char dset_ex[16], dset_ey[16], dset_ez[16];
+    long int nz, ny, nx, nxy, nyz, index_c, index_f;
+
+    hsize_t count[rank], offset[rank];
+
+    nx = (long int)simul_grid.nx;
+    ny = (long int)simul_grid.ny;
+    nz = (long int)simul_grid.nz;
+    double *data = (double *)malloc(sizeof(double)*nx*ny*nz);
+
+    count[0] = nx;
+    count[1] = ny;
+    count[2] = nz;
+    offset[0] = 0;
+    offset[1] = 0;
+    offset[2] = 0;
+
+    snprintf(dset_ex, sizeof(dset_ex), "%s", "ex");
+    snprintf(dset_ey, sizeof(dset_ey), "%s", "ey");
+    snprintf(dset_ez, sizeof(dset_ez), "%s", "ez");
+
+    // We need data in nz*ny*nx order.
+    nxy = nx * ny;
+    nyz = ny * nz;
+    if (multi_tframe == 0) {
+        read_data_serial_double_h5(rank, count, offset, fname, gname, dset_ex, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    efc_double[index_f].ex = data[index_c] * E0;
+                }
+            }
+        }
+        read_data_serial_double_h5(rank, count, offset, fname, gname, dset_ey, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    efc_double[index_f].ey = data[index_c] * E0;
+                }
+            }
+        }
+        read_data_serial_double_h5(rank, count, offset, fname, gname, dset_ez, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    efc_double[index_f].ez = data[index_c] * E0;
+                }
+            }
+        }
+    }
+    free(data);
+}
+
+/******************************************************************************
+ * Read the electric fields from HDF5 files produced by PIC simulations.
+ *
+ * Input:
+ *  fname: the HDF5 file name.
+ *  gname: the group name.
+ *  data_type: the data type (float or double).
+ ******************************************************************************/
+void read_pic_efields_h5(char *fname, char *gname, int data_type)
+{
+    if (data_type == sizeof(float)) {
+        read_pic_efields_float_h5(fname, gname);
+    } else if (data_type == sizeof(double)) {
+        read_pic_efields_double_h5(fname, gname);
+    } else {
+        printf("ERROR: wrong data type\n");
+        exit(1);
+    }
+}
+

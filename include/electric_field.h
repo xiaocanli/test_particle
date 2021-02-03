@@ -27,3 +27,5 @@ void get_double_efield_at_point(double x, double y, double z, double t,
 
 void get_float_efield_at_point(double x, double y, double z, double t,
         float *ex, float *ey, float *ez);
+
+void read_pic_efields_h5(char *fname, char *gname, int data_type);

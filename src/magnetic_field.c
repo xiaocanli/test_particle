@@ -620,3 +620,164 @@ void get_float_bfield_at_point(double x, double y, double z, double t,
         *bz = dt * bz1 + (1.0 - dt) * bz2;
     }
 }
+
+/******************************************************************************
+ * Read the magnetic fields from HDF5 files produced by PIC simulations.
+ * The data is in float.
+ *
+ o Input:
+ *  fname: the HDF5 file name.
+ *  gname: the group name.
+ ******************************************************************************/
+void read_pic_bfields_float_h5(char *fname, char *gname)
+{
+    const int rank = 3;
+    char dset_bx[16], dset_by[16], dset_bz[16];
+    long int nz, ny, nx, nxy, nyz, index_c, index_f;
+
+    hsize_t count[rank], offset[rank];
+
+    nx = (long int)simul_grid.nx;
+    ny = (long int)simul_grid.ny;
+    nz = (long int)simul_grid.nz;
+    float *data = (float *)malloc(sizeof(float)*nx*ny*nz);
+
+    count[0] = nx;
+    count[1] = ny;
+    count[2] = nz;
+    offset[0] = 0;
+    offset[1] = 0;
+    offset[2] = 0;
+
+    snprintf(dset_bx, sizeof(dset_bx), "%s", "cbx");
+    snprintf(dset_by, sizeof(dset_by), "%s", "cby");
+    snprintf(dset_bz, sizeof(dset_bz), "%s", "cbz");
+
+    // We need data in nz*ny*nx order.
+    nxy = nx * ny;
+    nyz = ny * nz;
+    if (multi_tframe == 0) {
+        read_data_serial_float_h5(rank, count, offset, fname, gname, dset_bx, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    magc_float[index_f].bx = data[index_c] * B0;
+                }
+            }
+        }
+        read_data_serial_float_h5(rank, count, offset, fname, gname, dset_by, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    magc_float[index_f].by = data[index_c] * B0;
+                }
+            }
+        }
+        read_data_serial_float_h5(rank, count, offset, fname, gname, dset_bz, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    magc_float[index_f].bz = data[index_c] * B0;
+                }
+            }
+        }
+    }
+    free(data);
+}
+
+/******************************************************************************
+ * Read the magnetic fields from HDF5 files produced by PIC simulations.
+ * The data is in double.
+ *
+ o Input:
+ *  fname: the HDF5 file name.
+ *  gname: the group name.
+ ******************************************************************************/
+void read_pic_bfields_double_h5(char *fname, char *gname)
+{
+    const int rank = 3;
+    char dset_bx[16], dset_by[16], dset_bz[16];
+    long int nz, ny, nx, nxy, nyz, index_c, index_f;
+
+    hsize_t count[rank], offset[rank];
+
+    nx = (long int)simul_grid.nx;
+    ny = (long int)simul_grid.ny;
+    nz = (long int)simul_grid.nz;
+    double *data = (double *)malloc(sizeof(double)*nx*ny*nz);
+
+    count[0] = nx;
+    count[1] = ny;
+    count[2] = nz;
+    offset[0] = 0;
+    offset[1] = 0;
+    offset[2] = 0;
+
+    snprintf(dset_bx, sizeof(dset_bx), "%s", "cbx");
+    snprintf(dset_by, sizeof(dset_by), "%s", "cby");
+    snprintf(dset_bz, sizeof(dset_bz), "%s", "cbz");
+
+    // We need data in nz*ny*nx order.
+    nxy = nx * ny;
+    nyz = ny * nz;
+    if (multi_tframe == 0) {
+        read_data_serial_double_h5(rank, count, offset, fname, gname, dset_bx, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    magc_double[index_f].bx = data[index_c] * B0;
+                }
+            }
+        }
+        read_data_serial_double_h5(rank, count, offset, fname, gname, dset_by, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    magc_double[index_f].by = data[index_c] * B0;
+                }
+            }
+        }
+        read_data_serial_double_h5(rank, count, offset, fname, gname, dset_bz, data);
+        for (long int i = 0; i != nx; ++i) {
+            for (long int j = 0; j != ny; ++j) {
+                for (long int k = 0; k != nz; ++k) {
+                    index_c = i * nyz + j * nz + k;
+                    index_f = k * nxy + j * nx + i;
+                    magc_double[index_f].bz = data[index_c] * B0;
+                }
+            }
+        }
+    }
+    free(data);
+}
+
+/******************************************************************************
+ * Read the magnetic fields from HDF5 files produced by PIC simulations.
+ *
+ * Input:
+ *  fname: the HDF5 file name.
+ *  gname: the group name.
+ *  data_type: the data type (float or double).
+ ******************************************************************************/
+void read_pic_bfields_h5(char *fname, char *gname, int data_type)
+{
+    if (data_type == sizeof(float)) {
+        read_pic_bfields_float_h5(fname, gname);
+    } else if (data_type == sizeof(double)) {
+        read_pic_bfields_double_h5(fname, gname);
+    } else {
+        printf("ERROR: wrong data type\n");
+        exit(1);
+    }
+}
+

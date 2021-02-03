@@ -1,0 +1,98 @@
+---------------------------- Simulation run type -----------------------------
+Run type (1: test particle simulation 2: Poincare map): 1
+------------------------------------------------------------------------------
+
+---------------------------- Particle information ----------------------------
+Total number of particles: 1280
+Particle thermal speed (in light speed): 0.3
+Single velocity: 1
+Mass: 1.0
+Charge: -1.0
+To diagnose particle trajectories?: 1
+Number of particles for trajectory diagnostics: 1280
+Time step interval for trajectory diagnostics: 1000
+------------------------------------------------------------------------------
+
+----------------------------- Domain information -----------------------------
+---- particle injection domain -----
+xmin_ptl = 640
+xmax_ptl = 650
+ymin_ptl = -5.0
+ymax_ptl = 5.0
+zmin_ptl = -5.0
+zmax_ptl = 5.0
+--------- simulation domain --------
+xmin = 0.0
+xmax = 750.0
+ymin = -31.25
+ymax = 31.25
+zmin = -156.25
+zmax = 156.25
+------------------------------------------------------------------------------
+
+--------------------------------- System info --------------------------------
+0: test, 1: wlcs, 2: forcefree 3: MHD+test particle 4: PIC fields+test particle
+Flag for the system to use: 4
+Configuration file name: init.dat
+------------------------------------------------------------------------------
+
+------------------------------ Force-free field ------------------------------
+Normalized B(Gauss): 1.0
+1/Length scale (lambda): 1.0
+------------------------------------------------------------------------------
+
+------------------------------ Particle tracking -----------------------------
+Total tracking time (s): 10000.0
+0 for fixed step, 1 for adaptive
+Tracking method to use: 0
+Tracking time step (for electrons): 1E-2
+------------------------------------------------------------------------------
+
+-------------------------------- Fields arrays -------------------------------
+x dimension(nx): 3072
+y dimension(ny): 256
+z dimension(nz): 1280
+time slices(nt): 1
+Velocity field normalization (in light speed): 0.0
+Magnetic field normalization (in Gauss): 1.0
+If using multiple time slices: 0
+File path: /global/cscratch1/sd/xiaocan/test_particle/qile_3d/field_hdf5
+Initial time frame: 22170
+Fields data file format (0 for binary, 1 for HDF5): 1
+------------------------------------------------------------------------------
+
+----------------------------- Boundary conditions ----------------------------
+0: periodic 1: open 2: no boundary
+BC for particles: 0
+------------------------------------------------------------------------------
+
+------------------------------ Check points info -----------------------------
+re-run the simulation: 0
+0 for new run. 1 for re-run.
+------------------------------------------------------------------------------
+
+----------------------------- Energy spectrum info ---------------------------
+nbins: 162
+emin: 1.0E-5
+emax: 1.0E3
+Number of diagnostic time frames: 1000
+If emin and emax in MeV: 1 (0 for Lorentz factor gamma)
+------------------------------------------------------------------------------
+
+------------------------- Poincare map configuration -------------------------
+Which face as the cross section (0: x, 1: y, 2:z): 1
+Field-line tracking step: 1E-2
+Maximum tracking length: 2E6
+Number of crossing points: 1000
+Whether to get the map only for a single point: 0
+x-position of the point: 10
+y-position of the point: 0
+z-position of the point: 0
+--------- for a 2D plane --------
+min_horizontal: 10
+max_horizontal: 990.0
+min_vertical: -0.0
+max_vertical: 1.0
+nhorizontal: 101
+nvertical: 1
+------------------------------------------------------------------------------

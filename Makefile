@@ -13,7 +13,7 @@ OPTIMIZATION =
 # OPTIMIZATION =
 
 # Specify HDF5_ROOT
-HDF5_ROOT = /opt/cray/pe/hdf5-parallel/1.10.1.1/INTEL/16.0
+HDF5_ROOT = /opt/cray/pe/hdf5-parallel/1.10.5.2/INTEL/19.0
 HDF5_INC = $(HDF5_ROOT)/include
 HDF5_LIB = -L$(HDF5_ROOT)/lib -lhdf5_hl -lhdf5
 LIBS = $(HDF5_LIB) -ldl

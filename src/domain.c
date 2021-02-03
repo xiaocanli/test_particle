@@ -24,6 +24,7 @@ void get_fields_dims(int mpi_rank, char *config_file_name, domain simul_domain,
         grids *simul_grid, double *v0_field, double *B0_field, int *multi_tframe);
 void get_fields_file_path(int mpi_rank, char *config_file_name, char *file_path);
 int get_fields_time_frame(int mpi_rank, char *config_file_name);
+int get_file_type(int mpi_rank, char *config_file_name);
 
 /******************************************************************************
  * Read simulation domain dimensions, flag for the systems to use.
@@ -313,10 +314,10 @@ int get_system_type(int mpi_rank, FILE *fp)
 int get_system_info(int mpi_rank, int system_type, char *config_file_name,
         int run_type, domain simul_domain)
 {
-    int multi_tframe, initial_time_frame;
+    int multi_tframe, initial_time_frame, file_type;
     grids simul_grid;
     double v0_field, B0_field;
-    char file_path[LEN_MAX];
+    char file_path[LEN_MAX], file_name[LEN_MAX], group_name[LEN_MAX];
     set_variables_emfields(system_type);
     switch (system_type) {
         case 0:
@@ -377,12 +378,26 @@ int get_system_info(int mpi_rank, int system_type, char *config_file_name,
                     multi_tframe);
             get_fields_file_path(mpi_rank, config_file_name, file_path);
             initial_time_frame = get_fields_time_frame(mpi_rank, config_file_name);
+            file_type = get_file_type(mpi_rank, config_file_name);
+            if (file_type) { // HDF5
+                snprintf(file_name, sizeof(file_name), "%s%s%d%s%d%s", file_path, "/T.",
+                        initial_time_frame, "/fields_", initial_time_frame, ".h5");
+                snprintf(group_name, sizeof(group_name), "%s%d", "Timestep_", initial_time_frame);
+            }
             if (run_type == 1) {
                 initialize_efield();
-                read_efields_binary(file_path, initial_time_frame, sizeof(float));
+                if (file_type) { // HDF5
+                    read_pic_efields_h5(file_name, group_name, sizeof(float));
+                } else {
+                    read_efields_binary(file_path, initial_time_frame, sizeof(float));
+                }
             }
             initialize_bfield();
-            read_bfields_binary(file_path, initial_time_frame, sizeof(float));
+            if (file_type) { // HDF5
+                read_pic_bfields_h5(file_name, group_name, sizeof(float));
+            } else {
+                read_bfields_binary(file_path, initial_time_frame, sizeof(float));
+            }
             break;
         default:
             if (mpi_rank == 0) {
@@ -419,6 +434,9 @@ void get_fields_file_path(int mpi_rank, char *config_file_name, char *file_path)
         printf("Failed to get file path for the fields.\n");
         exit(1);
     }
+    if (mpi_rank == 0) {
+        printf("File path for the field: %s\n", file_path);
+    }
     fclose(fp);
 }
 
@@ -449,6 +467,9 @@ int get_fields_time_frame(int mpi_rank, char *config_file_name)
         exit(1);
     }
     fclose(fp);
+    if (mpi_rank == 0) {
+        printf("The initial time frame of the fields: %d\n", tframe);
+    }
     return tframe;
 }
 
@@ -544,3 +565,41 @@ void get_fields_dims(int mpi_rank, char *config_file_name, domain simul_domain,
         printf("===========================================================\n");
     }
 }
+
+/******************************************************************************
+ * Get the file type of the fields
+ *
+ * Input:
+ *  mpi_rank: the rank of current MPI process.
+ *  config_file_name: the configuration filename.
+ *
+ * Return:
+ *  file_type: file type of the fields (0 for binary, 1 for HDF5).
+ ******************************************************************************/
+int get_file_type(int mpi_rank, char *config_file_name)
+{
+    FILE *fp;
+    char buff[LEN_MAX];
+    int msg, file_type;
+    fp = fopen(config_file_name, "r");
+    while (fgets(buff, LEN_MAX, fp) != NULL){
+        if (strstr(buff, "Initial time frame")) {
+            break;
+        }
+    };
+    msg = fscanf(fp, "Fields data file format (0 for binary, 1 for HDF5): %d\n", &file_type);
+    if (msg != 1) {
+        printf("Failed to get file type for the fields.\n");
+        exit(1);
+    }
+    if (mpi_rank == 0) {
+        if (file_type) {
+            printf("Fields data files are in HDF5 format\n");
+        } else {
+            printf("Fields data files are in binary format\n");
+        }
+    }
+    fclose(fp);
+    return file_type;
+}
+

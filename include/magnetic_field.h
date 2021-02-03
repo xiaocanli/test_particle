@@ -22,6 +22,8 @@ void free_bfield(void);
 
 void read_bfields_h5(int ct, char *fname, char *gname, int data_type);
 
+void read_pic_bfields_h5(char *fname, char *gname, int data_type);
+
 void read_bfields_binary(char *filepath, int ct, int data_type);
 
 void get_double_bfield_at_point(double x, double y, double z, double t,

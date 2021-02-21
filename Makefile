@@ -37,10 +37,12 @@ all:	$(BINDIR)/$(TARGET)
 	@echo  Programs are successfully compiled!
 
 $(BINDIR)/$(TARGET): $(OBJECTS)
+	mkdir -p $(@D)
 	$(LD) $(CFLAGS) $(OPTIMIZATION) $(LFLAGS) $(LIBS) -o $@ $^
 	@echo $(BINDIR)/$(TARGET) are successfully compiled!
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
+	mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(OPTIMIZATION) -c $< -o $@
 
 .PHONY: depend clean
